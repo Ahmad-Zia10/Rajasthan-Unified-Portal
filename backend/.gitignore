@@ -1,0 +1,93 @@
+# ── Python bytecode ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.virtualenv/
+.python-version
+
+# ── Distribution / packaging ──────────────────────────────────────────────────
+dist/
+build/
+*.egg
+*.egg-info/
+.eggs/
+wheels/
+MANIFEST
+
+# ── Environment variables / secrets ──────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+secrets.json
+config.local.py
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+pip-log.txt
+
+# ── Testing & coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+nosetests.xml
+
+# ── Type checking & linting ───────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pytype/
+
+# ── Jupyter Notebooks ─────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Playwright ────────────────────────────────────────────────────────────────
+playwright-report/
+test-results/
+# Keep playwright browsers out of repo (reinstall with: playwright install)
+.playwright/
+
+# ── Database / local data ─────────────────────────────────────────────────────
+*.sqlite3
+*.db
+*.sql
+*.dump
+scrape_cache/
+data/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+
+# ── IDE / Editors ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.bak
+tmp/
+temp/
+.cache/
