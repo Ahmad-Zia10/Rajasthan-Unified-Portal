@@ -13,6 +13,9 @@ ENV/
 .virtualenv/
 .python-version
 
+
+
+
 # ── Distribution / packaging ──────────────────────────────────────────────────
 dist/
 build/
@@ -91,3 +94,7 @@ desktop.ini
 tmp/
 temp/
 .cache/
+
+myenv/
+__pycache__/
+*.pyc
