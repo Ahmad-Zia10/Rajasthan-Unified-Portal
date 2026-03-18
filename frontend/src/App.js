@@ -14,7 +14,11 @@ import {
   Cell, PieChart, Pie,
 } from "recharts";
 
-const API = process.env.REACT_APP_API_URL || "https://rajasthan-cgwj.onrender.com";
+const API =
+  process.env.REACT_APP_API_URL ||
+  (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)
+    ? ""
+    : "https://rajasthan-cgwj.onrender.com");
 
 const SRC = {
   igod:       { label: "IGOD Portal",  icon: "🏛️", color: "#f97316", url: "https://igod.gov.in" },

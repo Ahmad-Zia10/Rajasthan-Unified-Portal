@@ -109,7 +109,10 @@ async def scrape_one(source_id: str):
 def get_rajras_schemes():
     data_path = Path(__file__).resolve().parent / "data" / "rajras_schemes.json"
     if not data_path.exists():
-        raise HTTPException(404, "RajRAS dataset not found. Run rajras_full_scraper first.")
+        cached = _cache.get("rajras", {}).get("data")
+        if cached:
+            return cached
+        raise HTTPException(404, "RajRAS dataset not found and no cached RajRAS data is available.")
     with data_path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -117,7 +120,10 @@ def get_rajras_schemes():
 def get_jansoochna_schemes():
     data_path = Path(__file__).resolve().parent / "data" / "jansoochna_schemes.json"
     if not data_path.exists():
-        raise HTTPException(404, "Jan Soochna dataset not found. Run jansoochna_full_scraper first.")
+        cached = _cache.get("jansoochna", {}).get("data")
+        if cached:
+            return cached
+        raise HTTPException(404, "Jan Soochna dataset not found and no cached Jan Soochna data is available.")
     with data_path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
