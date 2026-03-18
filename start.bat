@@ -6,7 +6,7 @@ echo ============================================
 echo.
 echo [1/2] Starting Python Backend (FastAPI)...
 cd backend
-start cmd /k "pip install -r requirements.txt && uvicorn main:app --reload --port 8000"
+start cmd /k "uv pip install -r requirements.txt && uv run uvicorn main:app --reload --port 8000"
 
 echo.
 echo [2/2] Starting React Frontend...

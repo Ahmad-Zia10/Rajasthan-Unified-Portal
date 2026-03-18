@@ -207,7 +207,7 @@ python3 -m scrapers.rajras_full_scraper
 ## 10.2 Start backend
 ```bash
 cd backend
-python3 -m uvicorn main:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000
 ```
 
 ## 10.3 Start frontend against local backend
