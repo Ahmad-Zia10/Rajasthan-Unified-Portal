@@ -104,6 +104,90 @@ const getProgressPct = (scheme) => {
   return null;
 };
 
+const normalizeSchemeRecord = (sourceId, item, index = 0) => {
+  if (!item || typeof item !== "object") return null;
+  const name = item.name || item.scheme_name || item.title || `Scheme ${index + 1}`;
+  return {
+    ...item,
+    id: item.id || `${sourceId}_${index + 1}`,
+    name,
+    category: item.category || "General",
+    benefit: item.benefit || item.benefits || "",
+    apply_url: item.apply_url || item.application_link || "",
+    _src: item._src || sourceId,
+    _src_label: item._src_label || SRC[sourceId]?.label || sourceId,
+    _src_url: item._src_url || SRC[sourceId]?.url || "",
+  };
+};
+
+const normalizePortalRecord = (item, index = 0) => {
+  if (!item || typeof item !== "object") return null;
+  return {
+    ...item,
+    id: item.id || `igod_${index + 1}`,
+    name: item.name || item.organization_name || item.portal_title || `Portal ${index + 1}`,
+    url: item.url || item.website_url || "",
+    status: item.status || "Active",
+    category: item.category || "Government Services",
+  };
+};
+
+const buildFallbackAggregate = ({ sourceStatus = {}, rajras = [], jansoochna = [], myscheme = [], igod = [] }) => {
+  const schemes = [
+    ...rajras.map((item, index) => normalizeSchemeRecord("rajras", item, index)).filter(Boolean),
+    ...jansoochna.map((item, index) => normalizeSchemeRecord("jansoochna", item, index)).filter(Boolean),
+    ...myscheme.map((item, index) => normalizeSchemeRecord("myscheme", item, index)).filter(Boolean),
+  ];
+  const portals = igod.map((item, index) => normalizePortalRecord(item, index)).filter(Boolean);
+
+  if (schemes.length === 0 && portals.length === 0) return null;
+
+  const categoryMap = new Map();
+  schemes.forEach((scheme) => {
+    const category = scheme.category || "General";
+    const existing = categoryMap.get(category) || { name: category, count: 0, sources: new Set() };
+    existing.count += 1;
+    existing.sources.add(scheme._src_label || scheme._src || "Unknown");
+    categoryMap.set(category, existing);
+  });
+
+  const categories = Array.from(categoryMap.values())
+    .map((entry) => ({ ...entry, sources: Array.from(entry.sources) }))
+    .sort((a, b) => b.count - a.count);
+
+  const latestScrapedAt = [
+    ...Object.values(sourceStatus).map((entry) => entry?.scraped_at).filter(Boolean),
+    ...schemes.map((scheme) => scheme.scraped_at).filter(Boolean),
+    ...portals.map((portal) => portal.scraped_at).filter(Boolean),
+  ].sort().at(-1);
+
+  return {
+    scraped_at: latestScrapedAt || new Date().toISOString(),
+    kpis: {
+      total_schemes: schemes.length,
+      total_portals: portals.length,
+      unique_categories: categories.length,
+      sources_live: Object.values(sourceStatus).filter((entry) => entry?.status === "ok").length,
+      rajras_count: rajras.length,
+      jansoochna_count: jansoochna.length,
+      myscheme_count: myscheme.length,
+      igod_count: igod.length,
+    },
+    schemes,
+    portals,
+    categories,
+    source_counts: [
+      { source: "RajRAS", count: rajras.length, color: "#3b82f6" },
+      { source: "Jan Soochna", count: jansoochna.length, color: "#10b981" },
+      { source: "MyScheme", count: myscheme.length, color: "#8b5cf6" },
+      { source: "IGOD Portals", count: igod.length, color: "#f97316" },
+    ],
+    alerts: [],
+    source_status: sourceStatus,
+    jjm_districts: [],
+  };
+};
+
 // ── InfoTip — ℹ️ hover tooltip ────────────────────────────────────────────────
 function InfoTip({ text }) {
   const [show, setShow] = useState(false);
@@ -1519,16 +1603,34 @@ export default function App() {
   const poll = useCallback(async(silent=true)=>{
     if(!silent) setRef(true);
     try {
-      const [s,a,rj,jsp]=await Promise.all([
+      const [s,a,rj,jsp,ms,ig]=await Promise.all([
         axios.get(`${API}/status`).catch(()=>null),
         axios.get(`${API}/aggregate`).catch(()=>null),
         axios.get(`${API}/data/rajras`).catch(()=>null),
         axios.get(`${API}/data/jansoochna`).catch(()=>null),
+        axios.get(`${API}/data/myscheme`).catch(()=>null),
+        axios.get(`${API}/data/igod`).catch(()=>null),
       ]);
-      if(s) setStatus(s.data.sources||{});
-      if(a) setAgg(a.data);
-      if (rj && Array.isArray(rj.data)) setRajrasData(rj.data);
-      if (jsp && Array.isArray(jsp.data)) setJansoochnaData(jsp.data);
+      const nextStatus = s?.data?.sources || {};
+      const rajrasRows = Array.isArray(rj?.data) ? rj.data : [];
+      const jansoochnaRows = Array.isArray(jsp?.data) ? jsp.data : [];
+      const myschemeRows = Array.isArray(ms?.data?.data) ? ms.data.data : [];
+      const igodRows = Array.isArray(ig?.data?.data) ? ig.data.data : [];
+
+      if(s) setStatus(nextStatus);
+      if(a?.data) {
+        setAgg(a.data);
+      } else {
+        setAgg(buildFallbackAggregate({
+          sourceStatus: nextStatus,
+          rajras: rajrasRows,
+          jansoochna: jansoochnaRows,
+          myscheme: myschemeRows,
+          igod: igodRows,
+        }));
+      }
+      setRajrasData(rajrasRows);
+      setJansoochnaData(jansoochnaRows);
       if(!silent) addLog("✅ Data refreshed","success");
     } catch(e){ if(!silent) addLog("❌ Refresh failed","error"); }
     if(!silent) setRef(false);
