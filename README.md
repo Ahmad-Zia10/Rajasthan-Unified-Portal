@@ -34,8 +34,8 @@ Open a terminal in VS Code and run:
 
 ```bash
 cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uv pip install -r requirements.txt
+uv run uvicorn main:app --reload --port 8000
 ```
 
 You should see:

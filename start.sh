@@ -6,8 +6,8 @@ echo "============================================"
 echo ""
 echo "[1/2] Starting Python Backend (FastAPI)..."
 cd backend
-pip install -r requirements.txt -q
-uvicorn main:app --reload --port 8000 &
+uv pip install -r requirements.txt -q
+uv run uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
 echo "Backend started (PID: $BACKEND_PID)"
 
