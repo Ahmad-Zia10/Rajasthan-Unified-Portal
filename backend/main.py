@@ -13,7 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from scrapers.igod_scraper       import scrape_igod
 from scrapers.rajras_scraper     import scrape_rajras
-from scrapers.jansoochna_scraper import scrape_jansoochna
+from scrapers.jansoochna_full_scraper import (
+    OUTPUT_PATH as JANSOOCHNA_OUTPUT_PATH,
+    run_scraper as scrape_jansoochna_full,
+    save_json as save_jansoochna_json,
+)
+from scrapers.jansoochna_scraper import scrape_jansoochna as scrape_jansoochna_basic
 from scrapers.myscheme_scraper   import scrape_myscheme
 from scrapers.budget_scraper     import scrape_budget
 from scrapers.jjm_scraper        import scrape_jjm
@@ -46,6 +51,24 @@ app = FastAPI(title="Rajasthan Dashboard API v3", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 _cache: dict = {}
+def scrape_jansoochna():
+    """Prefer full dataset scraping, but never let an empty run wipe out usable data."""
+    try:
+        data = scrape_jansoochna_full()
+        if data:
+            return data
+        log.warning("Jan Soochna full scraper returned 0 items; falling back to basic scraper.")
+    except Exception as exc:
+        log.warning("Jan Soochna full scraper failed: %s; falling back to basic scraper.", exc)
+
+    data = scrape_jansoochna_basic()
+    if data:
+        try:
+            save_jansoochna_json(data, JANSOOCHNA_OUTPUT_PATH)
+        except Exception as exc:
+            log.warning("Could not persist fallback Jan Soochna dataset: %s", exc)
+    return data
+
 SCRAPERS = {
     "igod":       scrape_igod,
     "rajras":     scrape_rajras,
@@ -111,7 +134,10 @@ def get_rajras_schemes():
     if not data_path.exists():
         cached = _cache.get("rajras", {}).get("data")
         if cached:
-            return cached
+            return [
+                _enrich_scheme({**item, "_src": "rajras", "_src_label": "RajRAS", "_src_url": "rajras.in"})
+                for item in cached
+            ]
         raise HTTPException(404, "RajRAS dataset not found and no cached RajRAS data is available.")
     with data_path.open("r", encoding="utf-8") as f:
         return json.load(f)
@@ -119,13 +145,20 @@ def get_rajras_schemes():
 @app.get("/data/jansoochna")
 def get_jansoochna_schemes():
     data_path = Path(__file__).resolve().parent / "data" / "jansoochna_schemes.json"
-    if not data_path.exists():
-        cached = _cache.get("jansoochna", {}).get("data")
-        if cached:
-            return cached
-        raise HTTPException(404, "Jan Soochna dataset not found and no cached Jan Soochna data is available.")
-    with data_path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    if data_path.exists():
+        with data_path.open("r", encoding="utf-8") as f:
+            file_data = json.load(f)
+        if isinstance(file_data, list) and file_data:
+            return file_data
+        log.warning("Jan Soochna dataset file is empty; falling back to cached data.")
+
+    cached = _cache.get("jansoochna", {}).get("data")
+    if cached:
+        return [
+            _enrich_scheme({**item, "_src": "jansoochna", "_src_label": "Jan Soochna", "_src_url": "jansoochna.rajasthan.gov.in"})
+            for item in cached
+        ]
+    raise HTTPException(404, "Jan Soochna dataset not found and no cached Jan Soochna data is available.")
 
 @app.get("/data/{source_id}")
 def get_data(source_id: str, limit: Optional[int] = None):

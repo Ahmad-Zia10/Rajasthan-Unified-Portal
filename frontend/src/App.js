@@ -710,7 +710,7 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
         name: s.name || "Untitled Scheme",
         category: s.category || "General",
         description: s.description || "",
-        benefit: Array.isArray(s.benefits) ? s.benefits.join(" | ") : (s.benefits || ""),
+        benefit: Array.isArray(s.benefits) ? s.benefits.join(" | ") : (s.benefits || s.benefit || ""),
         eligibility: Array.isArray(s.eligibility) ? s.eligibility.join(" | ") : (s.eligibility || ""),
         documents_required: Array.isArray(s.documents_required)
           ? s.documents_required.join(" | ")
@@ -720,6 +720,9 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
         progress: s.progress || null,
         progress_source: s.progress_source || null,
         progress_updated_at: s.progress_updated_at || null,
+        budget_amount: s.budget_amount || null,
+        beneficiary_display: s.beneficiary_display || null,
+        beneficiary_count: s.beneficiary_count || null,
         source: s.source || "RajRAS",
         url: s.url || "",
         status: "Active",
@@ -736,18 +739,20 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
         name: s.name || "Untitled Scheme",
         category: s.category || "General Services",
         description: s.description || "",
-        benefit: Array.isArray(s.benefits) ? s.benefits.join(" | ") : (s.benefits || ""),
+        benefit: Array.isArray(s.benefits) ? s.benefits.join(" | ") : (s.benefits || s.benefit || ""),
         eligibility: Array.isArray(s.eligibility) ? s.eligibility.join(" | ") : (s.eligibility || ""),
         documents_required: Array.isArray(s.documents_required)
           ? s.documents_required.join(" | ")
           : (s.documents_required || ""),
         department: s.department || null,
         beneficiary_count: s.beneficiary_count || null,
+        beneficiary_display: s.beneficiary_display || null,
         headings: s.headings || null,
         progress_pct: typeof s.progress_pct === "number" ? s.progress_pct : null,
         progress: s.progress || null,
         progress_source: s.progress_source || null,
         progress_updated_at: s.progress_updated_at || null,
+        budget_amount: s.budget_amount || null,
         source: s.source || "Jan Soochna",
         url: s.url || "",
         status: "Active",
@@ -759,14 +764,25 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
   );
   const schemes = useMemo(() => {
     let result = aggregateSchemes;
+    const aggregateJansoochna = aggregateSchemes.filter(s => s._src === "jansoochna");
+    const dedicatedJansoochnaHasMoreDetail = (jansoochnaData || []).some(
+      s => s?.headings || s?.documents_required || s?.progress_pct != null || s?.benefits || s?.eligibility
+    );
     if (normalizedRajras.length) {
       result = [...normalizedRajras, ...result.filter(s => s._src !== "rajras")];
     }
-    if (normalizedJansoochna.length) {
+    if (
+      normalizedJansoochna.length &&
+      (
+        normalizedJansoochna.length >= aggregateJansoochna.length ||
+        aggregateJansoochna.length === 0 ||
+        dedicatedJansoochnaHasMoreDetail
+      )
+    ) {
       result = [...normalizedJansoochna, ...result.filter(s => s._src !== "jansoochna")];
     }
     return result;
-  }, [aggregateSchemes, normalizedRajras, normalizedJansoochna]);
+  }, [aggregateSchemes, normalizedRajras, normalizedJansoochna, jansoochnaData]);
 
   if (!schemes.length) return <EmptyState onScrape={onScrapeAll}/>;
 
