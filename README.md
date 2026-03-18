@@ -33,8 +33,17 @@ For complete RajRAS pipeline implementation details (changes, architecture, stac
 Open a terminal in VS Code and run:
 
 ```bash
+# 1. Create a virtual environment (if not already present)
+uv venv
+
+# 2. Activate the environment
+source .venv/bin/activate
+
+# 3. Install dependencies
 cd backend
 uv pip install -r requirements.txt
+
+# 4. Start the server
 uv run uvicorn main:app --reload --port 8000
 ```
 
