@@ -109,6 +109,51 @@ PROGRESS_KEYWORDS = [
     "uptake",
 ]
 
+BENEFICIARY_KEYWORDS = [
+    "beneficiary",
+    "beneficiaries",
+    "families",
+    "family",
+    "households",
+    "household",
+    "farmers",
+    "students",
+    "women",
+    "children",
+    "workers",
+    "citizens",
+    "people",
+    "patients",
+    "labourers",
+    "laborers",
+    "eligible",
+    "coverage",
+    "covered",
+]
+
+BUDGET_KEYWORDS = [
+    "budget",
+    "outlay",
+    "allocation",
+    "cost to state",
+    "fund",
+    "funds",
+    "corpus",
+    "expenditure",
+    "financial assistance",
+    "assistance",
+    "subsidy",
+    "grant",
+    "loan",
+    "insurance cover",
+    "cover of",
+    "per month",
+    "per year",
+    "per annum",
+    "stipend",
+    "scholarship",
+]
+
 NUMBER_WORDS = {
     "one": 1,
     "two": 2,
@@ -326,7 +371,7 @@ def _normalize_count_phrase(raw: str) -> str:
 
 
 def _iter_sentences(text: str) -> List[str]:
-    return [segment.strip() for segment in re.split(r"(?<=[.!?])\s+", text) if segment.strip()]
+    return [segment.strip() for segment in re.split(r"(?<=[.!?])\s+|\s*•\s*", text) if segment.strip()]
 
 
 def _extract_launch_year(text: str) -> Optional[int]:
@@ -352,16 +397,27 @@ def _extract_budget(text: str) -> Optional[str]:
     if not text:
         return None
 
-    amount_pattern = r"(?:₹|Rs\.?|INR)\s*[\d,]+(?:\.\d+)?\s*(?:lakh\s*crore|crore|cr|lakh)?"
-    budget_keywords = ("budget", "outlay", "allocation", "cost to state", "fund", "corpus", "expenditure")
+    amount_pattern = (
+        r"((?:₹|Rs\.?|INR)\s*[\d,]+(?:\.\d+)?\s*(?:lakh\s*crore|crore|cr|lakh)?"
+        r"(?:\s*(?:per month|per year|per annum|monthly|annually|/month|/year|/yr|/mo))?)"
+    )
+    best_match: Optional[str] = None
+    best_score = -1
     for sentence in _iter_sentences(text):
         lowered = sentence.lower()
-        if not any(keyword in lowered for keyword in budget_keywords):
-            continue
         match = re.search(amount_pattern, sentence, re.IGNORECASE)
-        if match:
-            return _clean_text(match.group(0)).rstrip(" .,:;")
-    return None
+        if not match:
+            continue
+        kw_hits = sum(1 for keyword in BUDGET_KEYWORDS if keyword in lowered)
+        if kw_hits == 0 and not re.search(r"(?:₹|rs\.?|inr)", sentence, re.IGNORECASE):
+            continue
+        score = kw_hits
+        if re.search(r"(?:subsidy|grant|assistance|loan|insurance|stipend|scholarship)", lowered):
+            score += 2
+        if score > best_score:
+            best_score = score
+            best_match = _clean_text(match.group(1)).rstrip(" .,:;")
+    return best_match
 
 
 def _extract_beneficiaries(text: str) -> Optional[str]:
@@ -369,22 +425,36 @@ def _extract_beneficiaries(text: str) -> Optional[str]:
         return None
 
     count_patterns = [
-        r"((?:around\s+|about\s+|over\s+|more than\s+|nearly\s+)?\d+(?:\.\d+)?\s*(?:crore|lakh|lakhs)\s+(?:families|people|citizens|students|women|children|farmers|workers|beneficiaries))",
-        r"((?:around\s+|about\s+|over\s+|more than\s+|nearly\s+)?\d[\d,]*(?:\.\d+)?\s+(?:families|people|citizens|students|women|children|farmers|workers|beneficiaries))",
+        r"((?:around\s+|about\s+|over\s+|more than\s+|nearly\s+|upto\s+|up to\s+)?\d+(?:\.\d+)?\s*(?:crore|lakh|lakhs)\s+(?:families|family|households|people|citizens|students|women|children|farmers|workers|patients|beneficiaries))",
+        r"((?:around\s+|about\s+|over\s+|more than\s+|nearly\s+|upto\s+|up to\s+)?\d[\d,]*(?:\.\d+)?\s+(?:families|family|households|people|citizens|students|women|children|farmers|workers|patients|beneficiaries))",
+        r"((?:all\s+)?\d+(?:\.\d+)?\s*(?:crore|lakh|lakhs)?\s*(?:ration shops|shops|villages|hospitals|schools|districts))",
     ]
     audience_pattern = r"((?:laborers|labourers|rickshaw pullers|auto drivers|students|working women|elders|women|girls|children|farmers|workers)[^.]{0,120}?(?:beneficiary|beneficiaries|main beneficiary))"
 
+    best_match: Optional[str] = None
+    best_score = -1
     for sentence in _iter_sentences(text):
+        lowered = sentence.lower()
+        kw_hits = sum(1 for keyword in BENEFICIARY_KEYWORDS if keyword in lowered)
         for pattern in count_patterns:
             match = re.search(pattern, sentence, re.IGNORECASE)
             if match:
-                return _normalize_count_phrase(match.group(1)).rstrip(" .,:;")
-        if "beneficiar" in sentence.lower():
+                score = kw_hits
+                if re.search(r"(?:covered|registered|enrolled|eligible|distributed)", lowered):
+                    score += 2
+                candidate = _normalize_count_phrase(match.group(1)).rstrip(" .,:;")
+                if score > best_score:
+                    best_score = score
+                    best_match = candidate
+        if "beneficiar" in lowered:
             match = re.search(audience_pattern, sentence, re.IGNORECASE)
             if match:
-                return _clean_text(match.group(1)).rstrip(" .,:;")
+                candidate = _clean_text(match.group(1)).rstrip(" .,:;")
+                if kw_hits > best_score:
+                    best_score = kw_hits
+                    best_match = candidate
 
-    return None
+    return best_match
 
 
 def _extract_districts(text: str) -> Optional[str]:

@@ -104,6 +104,199 @@ const getProgressPct = (scheme) => {
   return null;
 };
 
+const cleanInlineText = (value) =>
+  String(value || "")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const firstUsefulSentence = (...values) => {
+  for (const value of values) {
+    const text = cleanInlineText(
+      Array.isArray(value) ? value.join(". ") : value
+    );
+    if (!text) continue;
+    const sentences = text
+      .split(/[.?!]\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const picked = sentences.find((part) => part.length >= 40) || sentences[0];
+    if (picked) {
+      return picked.replace(/\s+/g, " ").trim();
+    }
+  }
+  return "";
+};
+
+const stripSchemePrefix = (name = "") =>
+  cleanInlineText(name).replace(/^\d+\s*[\.)-]\s*/, "");
+
+const capitalizeSentence = (text = "") =>
+  text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+
+const deriveSchemeSummary = (scheme) => {
+  const name = stripSchemePrefix(scheme?.name || "This scheme");
+  const sourceLabel = scheme?._src_label || SRC[scheme?._src]?.label || "the source portal";
+  const category = cleanInlineText(scheme?.category || "public welfare")
+    .toLowerCase();
+
+  const whatItIs = firstUsefulSentence(
+    scheme?.objective,
+    scheme?.description,
+    scheme?.benefit,
+    scheme?.benefits
+  );
+  const whyItMatters = firstUsefulSentence(
+    scheme?.benefit,
+    scheme?.benefits,
+    scheme?.eligibility,
+    scheme?.description
+  );
+
+  const intro = whatItIs
+    ? cleanInlineText(whatItIs)
+    : `${name} is listed on ${sourceLabel} as a ${category} scheme.`;
+  const importance = whyItMatters
+    ? cleanInlineText(whyItMatters)
+    : `It is relevant for citizens looking for ${category} support through official government channels.`;
+
+  const normalizedIntro = intro.toLowerCase().includes(name.toLowerCase())
+    ? intro
+    : `${name} is a ${category} scheme on ${sourceLabel}. ${capitalizeSentence(intro)}`;
+
+  const normalizedImportance = importance.toLowerCase().startsWith("it ")
+    ? importance
+    : `It matters because ${importance.charAt(0).toLowerCase()}${importance.slice(1)}`;
+
+  return `${normalizedIntro} ${normalizedImportance}`.replace(/\s+/g, " ").trim();
+};
+
+const parseDisplayNumber = (rawValue) => {
+  if (rawValue == null) return null;
+  if (typeof rawValue === "number" && Number.isFinite(rawValue)) return rawValue;
+
+  const text = cleanInlineText(rawValue);
+  if (!text) return null;
+
+  const amountMatch = text.match(/₹?\s*([\d,]+(?:\.\d+)?)\s*(lakh\s*crore|crore|cr|lakh|lac|l|k)?/i);
+  if (!amountMatch) return null;
+
+  const base = parseFloat(amountMatch[1].replace(/,/g, ""));
+  if (!Number.isFinite(base)) return null;
+
+  const unit = (amountMatch[2] || "").toLowerCase();
+  if (unit.includes("lakh crore")) return base * 1e12;
+  if (unit.includes("crore") || unit === "cr") return base * 1e7;
+  if (unit === "lakh" || unit === "lac" || unit === "l") return base * 1e5;
+  if (unit === "k") return base * 1e3;
+  return base;
+};
+
+const inferMetricLabel = (matchText) => {
+  const text = matchText.toLowerCase();
+  if (text.includes("%")) return "Coverage";
+  if (text.includes("district")) return "District reach";
+  if (text.includes("shop")) return "Ration shops";
+  if (text.includes("city")) return "Cities covered";
+  if (text.includes("village")) return "Villages covered";
+  if (text.includes("hospital")) return "Hospitals";
+  if (text.includes("family")) return "Families";
+  if (text.includes("student")) return "Students";
+  if (text.includes("beneficiar")) return "Beneficiaries";
+  if (text.includes("connection")) return "Connections";
+  if (text.includes("house")) return "Houses";
+  if (text.includes("plate")) return "Meals";
+  if (text.includes("day")) return "Duration";
+  if (text.includes("crore") || text.includes("lakh") || text.includes("cr") || text.includes("₹")) {
+    return "Financial support";
+  }
+  return "Official figure";
+};
+
+const buildSchemeChartData = (scheme) => {
+  const metrics = [];
+  const seen = new Set();
+
+  const pushMetric = (metric) => {
+    if (!metric || !Number.isFinite(metric.value) || metric.value <= 0) return;
+    const key = `${metric.label}|${metric.display}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    metrics.push(metric);
+  };
+
+  const progressPct = getProgressPct(scheme);
+  if (progressPct != null) {
+    pushMetric({
+      label: "Implementation",
+      value: progressPct,
+      display: `${progressPct}%`,
+      source: scheme.progress_source || "Official progress field",
+      color: "#10b981",
+    });
+  }
+
+  const beneficiaries = scheme?.beneficiary_count ?? scheme?.beneficiary_display ?? scheme?.beneficiaries ?? null;
+  const beneficiaryValue = parseDisplayNumber(beneficiaries);
+  if (beneficiaryValue) {
+    pushMetric({
+      label: "Beneficiaries",
+      value: beneficiaryValue,
+      display: scheme.beneficiary_display || String(beneficiaries),
+      source: "Beneficiary figure from the current source record",
+      color: "#3b82f6",
+    });
+  }
+
+  const budgetValue = parseDisplayNumber(scheme?.budget_amount || scheme?.budget);
+  if (budgetValue) {
+    pushMetric({
+      label: "Budget / Benefit",
+      value: budgetValue,
+      display: scheme.budget_amount || scheme.budget,
+      source: "Budget or benefit amount from the current source record",
+      color: "#8b5cf6",
+    });
+  }
+
+  const districtValue = parseDisplayNumber(scheme?.districts);
+  if (districtValue) {
+    pushMetric({
+      label: "District reach",
+      value: districtValue,
+      display: scheme.districts,
+      source: "District coverage noted in the current source record",
+      color: "#f97316",
+    });
+  }
+
+  const textBlob = cleanInlineText([
+    scheme?.description,
+    Array.isArray(scheme?.benefits) ? scheme.benefits.join(". ") : scheme?.benefits,
+    scheme?.benefit,
+    Array.isArray(scheme?.eligibility) ? scheme.eligibility.join(". ") : scheme?.eligibility,
+    scheme?.objective,
+  ].filter(Boolean).join(". "));
+
+  const textMatches = textBlob.match(
+    /(?:₹\s*[\d,]+(?:\.\d+)?\s*(?:lakh\s*crore|crore|cr|lakh|lac)?|\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:%|days?|districts?|shops?|cities?|villages?|hospitals?|families?|students?|beneficiaries?|connections?|houses?|plates?|crore|cr|lakh|lac))\b/gi
+  ) || [];
+
+  textMatches.slice(0, 6).forEach((matchText, index) => {
+    const value = parseDisplayNumber(matchText);
+    if (!value) return;
+    pushMetric({
+      label: inferMetricLabel(matchText),
+      value,
+      display: cleanInlineText(matchText),
+      source: `Quantified fact mentioned in the official scheme text${index === 0 ? "" : ""}`,
+      color: PALETTE[index % PALETTE.length],
+    });
+  });
+
+  return metrics.slice(0, 4);
+};
+
 const normalizeSchemeRecord = (sourceId, item, index = 0) => {
   if (!item || typeof item !== "object") return null;
   const name = item.name || item.scheme_name || item.title || `Scheme ${index + 1}`;
@@ -544,21 +737,14 @@ function SchemeDetailPanel({ scheme, onClose }) {
   const progressPct = getProgressPct(scheme);
   const progressLabel = progressPct != null ? `${progressPct}%` : "N/A";
   const progressColor = progressPct != null ? srcMeta.color : "#9ca3af";
+  const schemeSummary = deriveSchemeSummary(scheme);
+  const chartData = buildSchemeChartData(scheme);
   const factCards = [
     { label:"Beneficiaries", value:beneficiaries, color:srcMeta.color, borderRight:true },
     { label:"Budget (2025-26)", value:budget, color:"#111827" },
     { label:"Launch Year", value:launchYear, color:"#111827", borderRight:true },
     { label:"Districts", value:districts, color:"#111827" },
   ].filter(card => card.value);
-
-  const H = 54, W = 120;
-  const rawPts = [0.55, 0.63, 0.70, 0.78, 0.85, 0.93, 1.0].map(f => 60 * f);
-  const maxV = Math.max(...rawPts);
-  const sparkPts = rawPts.map((v, i) => {
-    const x = (i / (rawPts.length - 1)) * W;
-    const y = H - (v / maxV) * (H - 4) - 2;
-    return `${x},${y}`;
-  }).join(" ");
 
   const keyFacts = [
     scheme.eligibility,
@@ -700,21 +886,81 @@ function SchemeDetailPanel({ scheme, onClose }) {
           )}
         </div>
 
-        {/* 7-Month Trend sparkline */}
+        {/* Summary */}
         <div style={{ padding:"18px 24px", borderBottom:"1px solid #f0f2f5" }}>
-          <Label>7-Month Trend</Label>
-          <svg width={W} height={H+6} style={{ overflow:"visible", display:"block" }}>
-            <defs>
-              <linearGradient id={`tg_${scheme.id||"s"}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={srcMeta.color} stopOpacity="0.18"/>
-                <stop offset="100%" stopColor={srcMeta.color} stopOpacity="0.02"/>
-              </linearGradient>
-            </defs>
-            <polygon points={`0,${H} ${sparkPts} ${W},${H}`}
-              fill={`url(#tg_${scheme.id||"s"})`}/>
-            <polyline points={sparkPts} fill="none" stroke={srcMeta.color}
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <Label>Scheme Summary</Label>
+          <div style={{ fontSize:13.5, color:"#374151", lineHeight:1.65 }}>
+            {schemeSummary}
+          </div>
+        </div>
+
+        {/* Official metrics chart */}
+        <div style={{ padding:"18px 24px", borderBottom:"1px solid #f0f2f5" }}>
+          <Label>Official Scheme Metrics</Label>
+          {chartData.length > 0 ? (
+            <>
+              <div style={{ height:220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={chartData}
+                    layout="vertical"
+                    margin={{ top: 8, right: 18, bottom: 8, left: 18 }}
+                  >
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      width={110}
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      formatter={(value, name, payload) => [payload?.payload?.display || value, payload?.payload?.label || name]}
+                      labelFormatter={() => "Official source figure"}
+                      contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 12 }}
+                    />
+                    <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`${entry.label}_${index}`} fill={entry.color || srcMeta.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display:"grid", gap:8, marginTop:8 }}>
+                {chartData.map((metric, index) => (
+                  <div key={`${metric.label}_${index}`} style={{
+                    display:"flex", justifyContent:"space-between", gap:10,
+                    background:"#f8fafc", border:"1px solid #e5e7eb",
+                    borderRadius:10, padding:"9px 11px"
+                  }}>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:"#111827" }}>{metric.label}</div>
+                      <div style={{ fontSize:11, color:"#6b7280", lineHeight:1.45 }}>{metric.source}</div>
+                    </div>
+                    <div style={{ fontSize:12, fontWeight:800, color:metric.color || srcMeta.color, whiteSpace:"nowrap" }}>
+                      {metric.display}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{
+              background:"#f9fafb",
+              border:"1px solid #e5e7eb",
+              borderRadius:10,
+              padding:"12px 14px",
+            }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:4 }}>
+                Official quantified data is not available
+              </div>
+              <div style={{ fontSize:12.5, color:"#6b7280", lineHeight:1.5 }}>
+                This portal record does not publish a reliable numeric scheme figure beyond the text summary, so the dashboard avoids showing an invented chart.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Coverage / Benefits */}
@@ -991,19 +1237,44 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14 }}>
         {filtered.map((scheme, i) => {
           const srcMeta    = SRC[scheme._src] || SRC.myscheme;
-          const benefitText = scheme.benefit || scheme.description || "";
+          const benefitText = cleanInlineText(scheme.benefit || scheme.description || "");
           const cardProgressPct = getProgressPct(scheme);
           const launchYear  = scheme.launched
             ? String(scheme.launched).match(/\d{4}/)?.[0]
             : scheme.scraped_at?.slice(0,4) || null;
+          const cardSummary = benefitText
+            ? `${benefitText.slice(0, 96)}${benefitText.length > 96 ? "..." : ""}`
+            : `Official ${String(scheme.category || "public welfare").toLowerCase()} scheme record available from ${scheme._src_label || srcMeta.label}.`;
+          const cardStats = [
+            {
+              label:"Beneficiaries",
+              val:scheme.beneficiary_display || (scheme.beneficiary_count ? String(scheme.beneficiary_count) : null),
+              color:srcMeta.color,
+              emptyLabel:"Not published",
+            },
+            {
+              label:"Budget",
+              val:scheme.budget_amount || null,
+              color:"#1f2937",
+              emptyLabel:"Awaiting figure",
+            },
+            {
+              label:"Progress",
+              val:cardProgressPct!=null ? `${cardProgressPct}%` : null,
+              color:"#10b981",
+              emptyLabel:"Official update pending",
+            },
+          ];
+          const availableStatCount = cardStats.filter((stat) => stat.val).length;
+          const hasAnyMetric = availableStatCount > 0;
 
           return (
             <div key={i} onClick={() => setSelected(scheme)} style={{
               background:"white", borderRadius:12, border:"1px solid #e5e7eb",
-              padding:"16px 16px 12px", borderTop:`3px solid ${srcMeta.color}`,
+              padding:"16px 16px 14px", borderTop:`3px solid ${srcMeta.color}`,
               cursor:"pointer", boxShadow:"0 1px 3px rgba(0,0,0,0.05)",
               transition:"box-shadow .15s, transform .12s",
-              display:"flex", flexDirection:"column",
+              display:"flex", flexDirection:"column", minHeight:242,
             }}
             onMouseEnter={e => {
               e.currentTarget.style.boxShadow = "0 6px 22px rgba(0,0,0,0.10)";
@@ -1022,64 +1293,86 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
                   {CAT_ICON[scheme.category]||"📋"}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:700, fontSize:13, color:"#1f2937",
-                    lineHeight:1.3, marginBottom:2,
-                    overflow:"hidden", textOverflow:"ellipsis",
-                    display:"-webkit-box", WebkitLineClamp:2,
-                    WebkitBoxOrient:"vertical" }}>
-                    {scheme.name}
-                  </div>
-                  <div style={{ fontSize:10.5, color:"#9ca3af" }}>
-                    {scheme.category||"General"}
-                    {launchYear ? ` · Since ${launchYear}` : ""}
+                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:700, fontSize:13, color:"#1f2937",
+                        lineHeight:1.3, marginBottom:2,
+                        overflow:"hidden", textOverflow:"ellipsis",
+                        display:"-webkit-box", WebkitLineClamp:2,
+                        WebkitBoxOrient:"vertical" }}>
+                        {scheme.name}
+                      </div>
+                      <div style={{ fontSize:10.5, color:"#9ca3af" }}>
+                        {scheme.category||"General"}
+                        {launchYear ? ` · Since ${launchYear}` : ""}
+                      </div>
+                    </div>
+                    <div style={{
+                      background: hasAnyMetric ? `${srcMeta.color}12` : "#f8fafc",
+                      color: hasAnyMetric ? srcMeta.color : "#94a3b8",
+                      border: `1px solid ${hasAnyMetric ? `${srcMeta.color}25` : "#e2e8f0"}`,
+                      borderRadius:999, padding:"4px 8px", fontSize:10, fontWeight:700,
+                      whiteSpace:"nowrap", flexShrink:0
+                    }}>
+                      {hasAnyMetric ? `${availableStatCount}/3 metrics` : "Text only"}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Benefit / description */}
-              <div style={{ fontSize:11.5, color:"#4b5563", lineHeight:1.5,
-                marginBottom:12, minHeight:32 }}>
-                {benefitText.slice(0,80)}{benefitText.length>80?"…":""}
+              <div style={{ fontSize:11.5, color:"#475569", lineHeight:1.55,
+                marginBottom:12, minHeight:54 }}>
+                {cardSummary}
               </div>
 
               {/* Stats row */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
-                gap:4, marginBottom:10 }}>
-                {[
-                  { label:"BENEFICIARIES", val:scheme.beneficiary_display||(scheme.beneficiary_count?String(scheme.beneficiary_count):null), color:srcMeta.color },
-                  { label:"BUDGET",        val:scheme.budget_amount||null,                           color:"#1f2937" },
-                  { label:"PROGRESS",      val:cardProgressPct!=null?`${cardProgressPct}%`:null, color:"#10b981" },
-                ].map((stat,j) => (
-                  <div key={j}>
-                    <div style={{ fontSize:9, fontWeight:700, color:"#9ca3af",
-                      letterSpacing:"0.06em", marginBottom:3 }}>{stat.label}</div>
+                gap:8, marginBottom:10 }}>
+                {cardStats.map((stat,j) => (
+                  <div key={j} style={{
+                    background: stat.val ? `${stat.color}10` : "#f8fafc",
+                    border: `1px solid ${stat.val ? `${stat.color}18` : "#edf2f7"}`,
+                    borderRadius:10, padding:"8px 8px 7px", minHeight:58
+                  }}>
+                    <div style={{ fontSize:9, fontWeight:700, color:"#94a3b8",
+                      letterSpacing:"0.06em", marginBottom:5, textTransform:"uppercase" }}>{stat.label}</div>
                     <div style={{ fontSize:13, fontWeight:800,
                       color:stat.color, lineHeight:1.2 }}>
                       {stat.val
                         ? (typeof stat.val==="number"
                             ? stat.val.toLocaleString("en-IN") : stat.val)
-                        : <span style={{ color:"#d1d5db" }}>—</span>}
+                        : <span style={{ color:"#94a3b8", fontSize:11.5, fontWeight:700 }}>{stat.emptyLabel}</span>}
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Progress bar */}
-              <div style={{ height:4, background:"#f3f4f6", borderRadius:4,
-                overflow:"hidden", marginBottom:10 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                marginBottom:6, gap:8 }}>
+                <span style={{ fontSize:10.5, fontWeight:700, color:"#94a3b8", letterSpacing:"0.04em", textTransform:"uppercase" }}>
+                  Data Availability
+                </span>
+                <span style={{ fontSize:11, color:hasAnyMetric ? "#475569" : "#94a3b8", fontWeight:600, whiteSpace:"nowrap" }}>
+                  {hasAnyMetric ? `${availableStatCount} official field${availableStatCount > 1 ? "s" : ""} visible` : "Details open for full text"}
+                </span>
+              </div>
+              <div style={{ height:5, background:"#f1f5f9", borderRadius:999,
+                overflow:"hidden", marginBottom:12 }}>
                 <div style={{
                   height:"100%",
-                  width: `${Math.min(cardProgressPct || 0,100)}%`,
-                  background: cardProgressPct!=null
+                  width: `${Math.max((availableStatCount / cardStats.length) * 100, hasAnyMetric ? 24 : 12)}%`,
+                  background: hasAnyMetric
                     ? `linear-gradient(90deg,${srcMeta.color},${srcMeta.color}99)`
-                    : "#d1d5db",
-                  borderRadius:4,
+                    : "linear-gradient(90deg,#cbd5e1,#e2e8f0)",
+                  borderRadius:999,
                 }}/>
               </div>
 
               {/* Source citation */}
               <div style={{ display:"flex", alignItems:"center", gap:5,
-                fontSize:9.5, color:"#b0b7c3", marginTop:"auto" }}>
+                fontSize:9.5, color:"#94a3b8", marginTop:"auto" }}>
                 <span style={{ display:"inline-block", width:12, height:12,
                   background:`${srcMeta.color}20`, borderRadius:3,
                   textAlign:"center", lineHeight:"12px", fontSize:8, flexShrink:0 }}>

@@ -95,6 +95,47 @@ PROGRESS_KEYWORDS = [
     "registered",
 ]
 
+BENEFICIARY_KEYWORDS = [
+    "beneficiary",
+    "beneficiaries",
+    "families",
+    "family",
+    "households",
+    "household",
+    "students",
+    "women",
+    "children",
+    "workers",
+    "citizens",
+    "people",
+    "farmers",
+    "patients",
+    "coverage",
+    "covered",
+    "distributed",
+    "status",
+]
+
+BUDGET_KEYWORDS = [
+    "budget",
+    "allocation",
+    "outlay",
+    "fund",
+    "funds",
+    "grant",
+    "subsidy",
+    "financial assistance",
+    "assistance",
+    "scholarship",
+    "stipend",
+    "loan",
+    "insurance",
+    "cover",
+    "per month",
+    "per year",
+    "per annum",
+]
+
 
 log = logging.getLogger("scraper.jansoochna_full")
 
@@ -174,6 +215,79 @@ def _coerce_list(value: object) -> List[str]:
         parts = re.split(r"[;\n]|(?:\s{2,})", text)
         return [_clean_text(part) for part in parts if _clean_text(part)]
     return []
+
+
+def _iter_sentences(text: str) -> List[str]:
+    return [segment.strip() for segment in re.split(r"(?<=[.!?])\s+|\s*•\s*", _clean_text(text)) if segment.strip()]
+
+
+def _extract_budget(lines: List[str]) -> Optional[str]:
+    amount_pattern = (
+        r"((?:₹|Rs\.?|INR)\s*[\d,]+(?:\.\d+)?\s*(?:lakh\s*crore|crore|cr|lakh)?"
+        r"(?:\s*(?:per month|per year|per annum|monthly|annually|/month|/year|/yr|/mo))?)"
+    )
+    best_match: Optional[str] = None
+    best_score = -1
+    for raw_line in lines:
+        for sentence in _iter_sentences(raw_line):
+            lowered = sentence.lower()
+            match = re.search(amount_pattern, sentence, re.IGNORECASE)
+            if not match:
+                continue
+            kw_hits = sum(1 for keyword in BUDGET_KEYWORDS if keyword in lowered)
+            if kw_hits == 0 and not re.search(r"(?:₹|rs\.?|inr)", sentence, re.IGNORECASE):
+                continue
+            score = kw_hits
+            if re.search(r"(?:benefit|coverage|insurance|assistance|subsidy|scholarship|stipend|loan)", lowered):
+                score += 2
+            if score > best_score:
+                best_score = score
+                best_match = _clean_text(match.group(1)).rstrip(" .,:;")
+    return best_match
+
+
+def _extract_beneficiaries(lines: List[str]) -> Optional[str]:
+    count_patterns = [
+        r"((?:around\s+|about\s+|over\s+|more than\s+|nearly\s+|upto\s+|up to\s+)?\d+(?:\.\d+)?\s*(?:crore|lakh|lakhs)\s+(?:families|family|households|people|citizens|students|women|children|farmers|workers|patients|beneficiaries))",
+        r"((?:around\s+|about\s+|over\s+|more than\s+|nearly\s+|upto\s+|up to\s+)?\d[\d,]*(?:\.\d+)?\s+(?:families|family|households|people|citizens|students|women|children|farmers|workers|patients|beneficiaries))",
+        r"((?:benefits?|assistance|services?)\s+distributed\s+to\s+(?:around\s+|about\s+|over\s+|more than\s+|nearly\s+)?\d+(?:\.\d+)?\s*(?:crore|lakh|lakhs)?\s*(?:families|family|households|people|citizens|beneficiaries))",
+    ]
+    best_match: Optional[str] = None
+    best_score = -1
+    for raw_line in lines:
+        for sentence in _iter_sentences(raw_line):
+            lowered = sentence.lower()
+            kw_hits = sum(1 for keyword in BENEFICIARY_KEYWORDS if keyword in lowered)
+            for pattern in count_patterns:
+                match = re.search(pattern, sentence, re.IGNORECASE)
+                if not match:
+                    continue
+                score = kw_hits
+                if re.search(r"(?:covered|registered|distributed|eligible|approved)", lowered):
+                    score += 2
+                if score > best_score:
+                    best_score = score
+                    best_match = _clean_text(match.group(1)).rstrip(" .,:;")
+    return best_match
+
+
+def _parse_beneficiary_count(raw_value: object) -> Optional[int]:
+    text = _clean_text(str(raw_value)) if raw_value not in (None, "") else ""
+    if not text:
+        return None
+    numeric = re.sub(r"[^\d.]", "", text)
+    if not numeric:
+        return None
+    try:
+        value = float(numeric)
+    except ValueError:
+        return None
+    lowered = text.lower()
+    if "crore" in lowered:
+        value *= 10_000_000
+    elif "lakh" in lowered or "lac" in lowered:
+        value *= 100_000
+    return int(value) if value > 0 else None
 
 
 def _extract_progress_signal(lines: List[str]) -> Tuple[Optional[float], Optional[str]]:
@@ -286,6 +400,8 @@ def extract_sections(soup: BeautifulSoup) -> Dict[str, Optional[object]]:
         "benefits": uniq(benefits) or None,
         "eligibility": uniq(eligibility) or None,
         "documents_required": uniq(documents_required) or None,
+        "beneficiaries": _extract_beneficiaries(all_lines),
+        "budget": _extract_budget(all_lines),
         "progress_pct": progress_pct,
         "progress_source": progress_source,
     }
@@ -380,6 +496,16 @@ def _normalize_record(raw: Dict[str, object], index: int) -> Dict[str, object]:
     progress_pct, progress_source = _extract_progress_signal(
         [_clean_text(description), *benefits, *eligibility, *documents_required]
     )
+    beneficiary_count = (
+        _parse_beneficiary_count(raw.get("beneficiary_count"))
+        or _parse_beneficiary_count(raw.get("BeneficiaryCount"))
+    )
+    beneficiaries = _extract_beneficiaries(
+        [_clean_text(description), *benefits, *eligibility, *documents_required]
+    )
+    budget = _extract_budget(
+        [_clean_text(description), *benefits, *eligibility, *documents_required]
+    )
 
     return {
         "id": f"jsp_full_{index + 1:03d}",
@@ -391,7 +517,9 @@ def _normalize_record(raw: Dict[str, object], index: int) -> Dict[str, object]:
         "benefits": benefits or None,
         "eligibility": eligibility or None,
         "documents_required": documents_required or None,
-        "beneficiary_count": raw.get("beneficiary_count") or raw.get("BeneficiaryCount") or None,
+        "beneficiary_count": beneficiary_count,
+        "beneficiaries": beneficiaries,
+        "budget": budget,
         "progress_pct": progress_pct,
         "progress": f"{progress_pct}%" if isinstance(progress_pct, (int, float)) else None,
         "progress_source": progress_source,
@@ -435,9 +563,14 @@ def scrape_scheme_page(
         detail_payload = _fetch_detail_payload(session, record.get("scheme_id"), config)
         if detail_payload:
             merged = {**record}
-            for key in ("description", "department", "beneficiary_count"):
+            for key in ("description", "department"):
                 if not merged.get(key):
                     merged[key] = _clean_text(detail_payload.get(key) or detail_payload.get(key.title()))
+            if not merged.get("beneficiary_count"):
+                merged["beneficiary_count"] = (
+                    _parse_beneficiary_count(detail_payload.get("beneficiary_count"))
+                    or _parse_beneficiary_count(detail_payload.get("BeneficiaryCount"))
+                )
             if not merged.get("benefits"):
                 merged["benefits"] = _coerce_list(detail_payload.get("benefits") or detail_payload.get("Benefit"))
             if not merged.get("eligibility"):
@@ -446,14 +579,22 @@ def scrape_scheme_page(
                 merged["documents_required"] = _coerce_list(
                     detail_payload.get("documents_required") or detail_payload.get("DocumentsRequired")
                 )
+            signal_lines = [
+                _clean_text(merged.get("description")),
+                *_coerce_list(detail_payload.get("description")),
+                *_coerce_list(detail_payload.get("benefits")),
+                *_coerce_list(detail_payload.get("Benefit")),
+                *_coerce_list(detail_payload.get("eligibility")),
+                *_coerce_list(detail_payload.get("Eligibility")),
+            ]
+            if not merged.get("beneficiaries"):
+                merged["beneficiaries"] = _extract_beneficiaries(signal_lines)
+            if not merged.get("budget"):
+                merged["budget"] = _extract_budget(signal_lines)
             if merged.get("progress_pct") is None:
-                merged["progress_pct"], merged["progress_source"] = _extract_progress_signal(
-                    [
-                        _clean_text(merged.get("description")),
-                        *_coerce_list(detail_payload.get("description")),
-                        *_coerce_list(detail_payload.get("benefits")),
-                    ]
-                )
+                merged["progress_pct"], merged["progress_source"] = _extract_progress_signal(signal_lines)
+                if merged.get("progress_pct") is not None:
+                    merged["progress"] = f"{merged['progress_pct']}%"
             return merged
 
         url = str(record.get("url") or "")
@@ -465,7 +606,7 @@ def scrape_scheme_page(
         soup = BeautifulSoup(response.text, "html.parser")
         sections = extract_sections(soup)
         updated = {**record}
-        for key in ("description", "benefits", "eligibility", "documents_required"):
+        for key in ("description", "benefits", "eligibility", "documents_required", "beneficiaries", "budget"):
             if not updated.get(key) and sections.get(key):
                 updated[key] = sections[key]
         if not updated.get("category"):
