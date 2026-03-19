@@ -275,7 +275,7 @@ function ScrapeNowButton({ onClick, loading, disabled }) {
     }}>
       <span style={{ fontSize:16, display:"inline-block",
         animation:loading?"spin 1s linear infinite":"none" }}>⚡</span>
-      {loading?"Scraping…":"Scrape Now"}
+      {loading?"Refreshing…":"Refresh"}
     </button>
   );
 }
@@ -532,16 +532,24 @@ function SchemeDetailPanel({ scheme, onClose }) {
       : srcMeta.url);
 
   const beneficiaries = scheme.beneficiary_display
+    || scheme.beneficiaries
     || (scheme.beneficiary_count ? String(scheme.beneficiary_count) : null)
     || null;
-  const budget = scheme.budget_amount || null;
-  const launchYear    = scheme.launched
-    ? String(scheme.launched).match(/\d{4}/)?.[0] || scheme.launched
-    : scheme.scraped_at?.slice(0, 4) || "—";
-  const districts     = scheme.districts || "All 33";
+  const budget = scheme.budget_amount || scheme.budget || null;
+  const launchYear = scheme.launch_year
+    || (scheme.launched
+      ? String(scheme.launched).match(/\d{4}/)?.[0] || scheme.launched
+      : null);
+  const districts = scheme.districts || null;
   const progressPct = getProgressPct(scheme);
   const progressLabel = progressPct != null ? `${progressPct}%` : "N/A";
   const progressColor = progressPct != null ? srcMeta.color : "#9ca3af";
+  const factCards = [
+    { label:"Beneficiaries", value:beneficiaries, color:srcMeta.color, borderRight:true },
+    { label:"Budget (2025-26)", value:budget, color:"#111827" },
+    { label:"Launch Year", value:launchYear, color:"#111827", borderRight:true },
+    { label:"Districts", value:districts, color:"#111827" },
+  ].filter(card => card.value);
 
   const H = 54, W = 120;
   const rawPts = [0.55, 0.63, 0.70, 0.78, 0.85, 0.93, 1.0].map(f => 60 * f);
@@ -610,34 +618,28 @@ function SchemeDetailPanel({ scheme, onClose }) {
           </div>
         </div>
 
-        {/* Beneficiaries + Budget */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr",
-          borderBottom:"1px solid #f0f2f5" }}>
-          <div style={{ padding:"18px 24px", borderRight:"1px solid #f0f2f5" }}>
-            <Label>Beneficiaries</Label>
-            <div style={{ fontSize:20, fontWeight:800, color:srcMeta.color }}>
-              {typeof beneficiaries==="number"
-                ? beneficiaries.toLocaleString("en-IN") : beneficiaries}
-            </div>
+        {factCards.length > 0 && (
+          <div style={{
+            display:"grid",
+            gridTemplateColumns:"1fr 1fr",
+            borderBottom:"1px solid #f0f2f5",
+          }}>
+            {factCards.map((card, idx) => (
+              <div key={`${card.label}_${idx}`} style={{
+                padding:"18px 24px",
+                borderRight: idx % 2 === 0 && idx !== factCards.length - 1 ? "1px solid #f0f2f5" : "none",
+                borderBottom: idx < factCards.length - 2 ? "1px solid #f0f2f5" : "none",
+              }}>
+                <Label>{card.label}</Label>
+                <div style={{ fontSize:20, fontWeight:800, color:card.color }}>
+                  {typeof card.value === "number"
+                    ? card.value.toLocaleString("en-IN")
+                    : card.value}
+                </div>
+              </div>
+            ))}
           </div>
-          <div style={{ padding:"18px 24px" }}>
-            <Label>Budget (2025-26)</Label>
-            <div style={{ fontSize:20, fontWeight:800, color:"#111827" }}>{budget}</div>
-          </div>
-        </div>
-
-        {/* Launch + Districts */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr",
-          borderBottom:"1px solid #f0f2f5" }}>
-          <div style={{ padding:"18px 24px", borderRight:"1px solid #f0f2f5" }}>
-            <Label>Launch Year</Label>
-            <div style={{ fontSize:20, fontWeight:800, color:"#111827" }}>{launchYear}</div>
-          </div>
-          <div style={{ padding:"18px 24px" }}>
-            <Label>Districts</Label>
-            <div style={{ fontSize:20, fontWeight:800, color:"#111827" }}>{districts}</div>
-          </div>
-        </div>
+        )}
 
         {/* Progress */}
         <div style={{ padding:"20px 24px", borderBottom:"1px solid #f0f2f5" }}>
@@ -805,8 +807,12 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
         progress_source: s.progress_source || null,
         progress_updated_at: s.progress_updated_at || null,
         budget_amount: s.budget_amount || null,
+        budget: s.budget || null,
         beneficiary_display: s.beneficiary_display || null,
         beneficiary_count: s.beneficiary_count || null,
+        beneficiaries: s.beneficiaries || null,
+        launch_year: s.launch_year || null,
+        districts: s.districts || null,
         source: s.source || "RajRAS",
         url: s.url || "",
         status: "Active",
@@ -1710,22 +1716,6 @@ export default function App() {
             <span style={{ fontSize:13, fontWeight:700, color:"#166534" }}>Verified Data</span>
           </div>
           <ScrapeNowButton onClick={scrapeAll} loading={scrapingAll} disabled={!online}/>
-          <button onClick={()=>poll(false)} disabled={refreshing} style={{
-            background:refreshing?"#eff6ff":"white", color:refreshing?"#93c5fd":"#3b82f6",
-            border:`1.5px solid ${refreshing?"#bfdbfe":"#3b82f6"}`,
-            borderRadius:10, padding:"10px 16px", fontWeight:700, fontSize:13,
-            display:"flex", alignItems:"center", gap:6, cursor:refreshing?"not-allowed":"pointer" }}>
-            <span style={{ display:"inline-block", animation:refreshing?"spin 1s linear infinite":"none" }}>🔄</span>
-            {refreshing?"Refreshing…":"Refresh"}
-          </button>
-          <div style={{ background:online===null?"#f9fafb":online?"#f0fdf4":"#fef2f2",
-            border:`1px solid ${online===null?"#e5e7eb":online?"#bbf7d0":"#fecaca"}`,
-            borderRadius:8, padding:"6px 12px", fontSize:12, fontWeight:600,
-            color:online===null?"#6b7280":online?"#166534":"#991b1b",
-            display:"flex", alignItems:"center", gap:6 }}>
-            <StatusDot status={online===null?"idle":online?"ok":"error"}/>
-            {online===null?"Checking…":online?"Backend Online":"Offline"}
-          </div>
           <div style={{ display:"flex", alignItems:"center", gap:10, paddingLeft:12, borderLeft:"1px solid #e5e7eb" }}>
             <div style={{ width:36, height:36, borderRadius:8, background:"#fee2e2",
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>👤</div>

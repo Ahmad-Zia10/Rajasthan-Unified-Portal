@@ -109,6 +109,42 @@ PROGRESS_KEYWORDS = [
     "uptake",
 ]
 
+NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+    "twenty one": 21,
+    "twenty-two": 22,
+    "twenty three": 23,
+    "twenty-four": 24,
+    "twenty five": 25,
+    "twenty-six": 26,
+    "twenty seven": 27,
+    "twenty-eight": 28,
+    "twenty nine": 29,
+    "thirty": 30,
+    "thirty one": 31,
+    "thirty-two": 32,
+    "thirty three": 33,
+}
+
 
 log = logging.getLogger("scraper.rajras_full")
 
@@ -280,6 +316,111 @@ def _extract_progress_signal(chunks: List[Tuple[str, List[str]]]) -> Tuple[Optio
     return best_pct, best_source
 
 
+def _normalize_count_phrase(raw: str) -> str:
+    text = _clean_text(raw)
+    if not text:
+        return text
+    text = re.sub(r"\bLakhs\b", "lakh", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bCrores\b", "crore", text, flags=re.IGNORECASE)
+    return text
+
+
+def _iter_sentences(text: str) -> List[str]:
+    return [segment.strip() for segment in re.split(r"(?<=[.!?])\s+", text) if segment.strip()]
+
+
+def _extract_launch_year(text: str) -> Optional[int]:
+    if not text:
+        return None
+
+    patterns = [
+        r"(?:launched|started|introduced|implemented|announced|rolled out|came into force)[^.]{0,120}?\b(19\d{2}|20\d{2})\b",
+        r"\bon\s+\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s*,?\s*(19\d{2}|20\d{2})\b",
+        r"\bin\s+(19\d{2}|20\d{2})\b",
+        r"\bduring\s+the\s+year\s+(19\d{2}|20\d{2})\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            year = int(match.group(1))
+            if 1900 <= year <= 2100:
+                return year
+    return None
+
+
+def _extract_budget(text: str) -> Optional[str]:
+    if not text:
+        return None
+
+    amount_pattern = r"(?:₹|Rs\.?|INR)\s*[\d,]+(?:\.\d+)?\s*(?:lakh\s*crore|crore|cr|lakh)?"
+    budget_keywords = ("budget", "outlay", "allocation", "cost to state", "fund", "corpus", "expenditure")
+    for sentence in _iter_sentences(text):
+        lowered = sentence.lower()
+        if not any(keyword in lowered for keyword in budget_keywords):
+            continue
+        match = re.search(amount_pattern, sentence, re.IGNORECASE)
+        if match:
+            return _clean_text(match.group(0)).rstrip(" .,:;")
+    return None
+
+
+def _extract_beneficiaries(text: str) -> Optional[str]:
+    if not text:
+        return None
+
+    count_patterns = [
+        r"((?:around\s+|about\s+|over\s+|more than\s+|nearly\s+)?\d+(?:\.\d+)?\s*(?:crore|lakh|lakhs)\s+(?:families|people|citizens|students|women|children|farmers|workers|beneficiaries))",
+        r"((?:around\s+|about\s+|over\s+|more than\s+|nearly\s+)?\d[\d,]*(?:\.\d+)?\s+(?:families|people|citizens|students|women|children|farmers|workers|beneficiaries))",
+    ]
+    audience_pattern = r"((?:laborers|labourers|rickshaw pullers|auto drivers|students|working women|elders|women|girls|children|farmers|workers)[^.]{0,120}?(?:beneficiary|beneficiaries|main beneficiary))"
+
+    for sentence in _iter_sentences(text):
+        for pattern in count_patterns:
+            match = re.search(pattern, sentence, re.IGNORECASE)
+            if match:
+                return _normalize_count_phrase(match.group(1)).rstrip(" .,:;")
+        if "beneficiar" in sentence.lower():
+            match = re.search(audience_pattern, sentence, re.IGNORECASE)
+            if match:
+                return _clean_text(match.group(1)).rstrip(" .,:;")
+
+    return None
+
+
+def _extract_districts(text: str) -> Optional[str]:
+    if not text:
+        return None
+
+    match = re.search(r"\ball\s+33\s+districts\b", text, re.IGNORECASE)
+    if match:
+        return "All 33"
+
+    candidates: List[Tuple[int, int]] = []
+    for sentence in _iter_sentences(text):
+        lowered = sentence.lower()
+        score = 0
+        if any(token in lowered for token in ("rajasthan", "state", "implemented", "cover", "covered", "serves")):
+            score += 2
+        if "district" not in lowered:
+            continue
+
+        for match in re.finditer(r"\b(\d{1,2})\s+districts\b", sentence, re.IGNORECASE):
+            candidates.append((int(match.group(1)), score))
+        for phrase, value in NUMBER_WORDS.items():
+            if re.search(rf"\b{re.escape(phrase)}\s+districts\b", lowered, re.IGNORECASE):
+                candidates.append((value, score))
+
+    if not candidates:
+        return None
+
+    best_score = max(score for _, score in candidates)
+    best_values = sorted({value for value, score in candidates if score == best_score})
+    if len(best_values) == 1:
+        return f"{best_values[0]} districts"
+
+    return None
+
+
 def extract_sections(soup: BeautifulSoup) -> Dict[str, Optional[object]]:
     content = _extract_main_content(soup)
     chunks = _iter_section_chunks(content)
@@ -334,6 +475,7 @@ def extract_sections(soup: BeautifulSoup) -> Dict[str, Optional[object]]:
     documents = uniq(documents)
     description = _clean_text(" ".join(description_parts[:3])) or None
     progress_pct, progress_source = _extract_progress_signal(chunks)
+    full_text = _clean_text(" ".join(line for _, lines in chunks for line in lines))
 
     return {
         "description": description,
@@ -341,6 +483,10 @@ def extract_sections(soup: BeautifulSoup) -> Dict[str, Optional[object]]:
         "benefits": benefits or None,
         "eligibility": eligibility or None,
         "documents_required": documents or None,
+        "beneficiaries": _extract_beneficiaries(full_text),
+        "launch_year": _extract_launch_year(full_text),
+        "budget": _extract_budget(full_text),
+        "districts": _extract_districts(full_text),
         "progress_pct": progress_pct,
         "progress_source": progress_source,
     }
@@ -404,6 +550,10 @@ def scrape_scheme_page(
         "benefits": sections["benefits"],
         "eligibility": sections["eligibility"],
         "documents_required": sections["documents_required"],
+        "beneficiaries": sections["beneficiaries"],
+        "launch_year": sections["launch_year"],
+        "budget": sections["budget"],
+        "districts": sections["districts"],
         "progress_pct": sections["progress_pct"],
         "progress_source": sections["progress_source"],
         "source": "RajRAS",
@@ -436,28 +586,31 @@ def run_scraper(
 
         for idx, url in enumerate(tqdm(scheme_links, desc="Scraping RajRAS schemes"), start=1):
             item = scrape_scheme_page(url, session=session, config=config)
-            collected.append(
-                {
-                    "id": f"rajras_{idx:03d}",
-                    "name": item["scheme_name"],
-                    "category": item["category"],
-                    "description": item["description"],
-                    "headings": item["headings"],
-                    "benefits": item["benefits"],
-                    "eligibility": item["eligibility"],
-                    "documents_required": item["documents_required"],
-                    "progress_pct": item["progress_pct"],
-                    "progress": (
-                        f"{item['progress_pct']}%"
-                        if isinstance(item.get("progress_pct"), (int, float))
-                        else None
-                    ),
-                    "progress_source": item["progress_source"],
-                    "progress_updated_at": run_ts if item["progress_pct"] is not None else None,
-                    "source": item["source"],
-                    "url": item["source_url"],
-                }
-            )
+            row = {
+                "id": f"rajras_{idx:03d}",
+                "name": item["scheme_name"],
+                "category": item["category"],
+                "description": item["description"],
+                "headings": item["headings"],
+                "benefits": item["benefits"],
+                "eligibility": item["eligibility"],
+                "documents_required": item["documents_required"],
+                "beneficiaries": item["beneficiaries"],
+                "launch_year": item["launch_year"],
+                "budget": item["budget"],
+                "districts": item["districts"],
+                "progress_pct": item["progress_pct"],
+                "progress": (
+                    f"{item['progress_pct']}%"
+                    if isinstance(item.get("progress_pct"), (int, float))
+                    else None
+                ),
+                "progress_source": item["progress_source"],
+                "progress_updated_at": run_ts if item["progress_pct"] is not None else None,
+                "source": item["source"],
+                "url": item["source_url"],
+            }
+            collected.append({k: v for k, v in row.items() if v is not None})
             time.sleep(config.polite_delay)
 
         # Deduplicate by URL; keep first seen.
