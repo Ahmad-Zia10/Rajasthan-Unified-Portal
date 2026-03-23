@@ -281,6 +281,25 @@ def _enrich_scheme(s):
     }
 
 
+def _normalize_portal(p):
+    """Return a stable portal object for IGOD records."""
+    name = p.get("name") or p.get("organization_name") or p.get("portal_title") or "Government Portal"
+    url = p.get("url") or p.get("website_url") or ""
+    description = p.get("description") or p.get("meta_description") or p.get("summary") or ""
+    return {
+        **p,
+        "name": name,
+        "organization_name": p.get("organization_name") or name,
+        "portal_title": p.get("portal_title") or p.get("page_title") or name,
+        "url": url,
+        "website_url": p.get("website_url") or url,
+        "description": description,
+        "summary": p.get("summary") or description,
+        "category": p.get("category") or "Government Services",
+        "status": p.get("status") or "Active",
+    }
+
+
 # ── aggregate ──────────────────────────────────────────────────────────────────
 @app.get("/aggregate")
 def aggregate():
@@ -325,11 +344,11 @@ def aggregate():
         {"source": "RajRAS",      "count": len(rr_raw),  "color": "#3b82f6"},
         {"source": "Jan Soochna", "count": len(jsp_raw), "color": "#10b981"},
         {"source": "MyScheme",    "count": len(ms_raw),  "color": "#8b5cf6"},
-        {"source": "IGOD Portals","count": len(igod_raw),"color": "#f97316"},
+        {"source": "IGOD Directory","count": len(igod_raw),"color": "#f97316"},
     ]
 
     # ── 4. Portals (igod only) ─────────────────────────────────────────────────
-    portals = igod_raw  # fields: id, position, name, url, domain, category, description, portal_title, status, source, scraped_at
+    portals = [_normalize_portal(p) for p in igod_raw]
 
     # ── 5. KPIs ────────────────────────────────────────────────────────────────
     sources_live = sum(1 for sid in SCRAPERS if _cache.get(sid, {}).get("status") == "ok")
@@ -485,7 +504,7 @@ async def generate_insights():
     jsp_raw   = _cache.get("jansoochna",  {}).get("data", [])
     ms_raw    = _cache.get("myscheme",    {}).get("data", [])
     schemes   = rr_raw + jsp_raw + ms_raw
-    portals   = igod_raw
+    portals   = [_normalize_portal(p) for p in igod_raw]
 
     if not schemes:
         raise HTTPException(400, "No scraped data found. Run /scrape/all first.")
