@@ -660,7 +660,7 @@ function TopBenefits({ withValue }) {
           {withValue.slice(0,10).map((s,i) => {
             const src = s._src_label || s.source?.split(".")?.[0] || "";
             const srcC = {RajRAS:C.blue,"Jan Soochna":C.green,
-              MyScheme:C.purple,"IGOD Portal":C.orange}[src] || C.orange;
+              MyScheme:C.purple,"IGOD Portal":C.orange,"IGOD Directory":C.orange}[src] || C.orange;
             const max = withValue[0]._inr;
             const url = safeUrl(s);
             return (
@@ -706,12 +706,12 @@ function TopBenefits({ withValue }) {
 }
 
 function SourceBreakdown({ srcMap, totalSchemes }) {
-  const colors = { RajRAS:C.blue, "Jan Soochna":C.green, MyScheme:C.purple, "IGOD Portal":C.orange };
+  const colors = { RajRAS:C.blue, "Jan Soochna":C.green, MyScheme:C.purple, "IGOD Portal":C.orange, "IGOD Directory":C.orange };
   const srcLinks = {
     RajRAS: "https://rajras.in/ras/pre/rajasthan/adm/schemes/",
     "Jan Soochna": "https://jansoochna.rajasthan.gov.in/",
     MyScheme: "https://www.myscheme.gov.in/search?q=rajasthan",
-    "IGOD Portal": "https://igod.gov.in/sg/RJ/SPMA/organizations",
+    "IGOD Directory": "https://igod.gov.in/sg/RJ/SPMA/organizations",
   };
   const max = Math.max(...Object.values(srcMap));
   return (
@@ -787,7 +787,7 @@ function AllSchemes({ schemes }) {
         {filtered.slice(0, showCount).map((s,i) => {
           const src  = s._src_label || s.source?.split(".")?.[0] || "?";
           const srcC = {RajRAS:C.blue,"Jan Soochna":C.green,
-            MyScheme:C.purple,"IGOD Portal":C.orange}[src] || C.orange;
+            MyScheme:C.purple,"IGOD Portal":C.orange,"IGOD Directory":C.orange}[src] || C.orange;
           const url  = safeUrl(s);
           return (
             <Card key={i} style={{ padding:12, borderLeft:`3px solid ${srcC}` }}>

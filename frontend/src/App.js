@@ -21,7 +21,7 @@ const API =
     : "https://rajasthan-cgwj.onrender.com");
 
 const SRC = {
-  igod:       { label: "IGOD Portal",  icon: "🏛️", color: "#f97316", url: "https://igod.gov.in" },
+  igod:       { label: "IGOD Directory", icon: "🏛️", color: "#f97316", url: "https://igod.gov.in/sg/RJ/SPMA/organizations" },
   rajras:     { label: "RajRAS",       icon: "📋", color: "#3b82f6", url: "https://rajras.in" },
   jansoochna: { label: "Jan Soochna",  icon: "👁️", color: "#10b981", url: "https://jansoochna.rajasthan.gov.in" },
   myscheme:   { label: "MyScheme",     icon: "🔍", color: "#8b5cf6", url: "https://myscheme.gov.in" },
@@ -315,11 +315,16 @@ const normalizeSchemeRecord = (sourceId, item, index = 0) => {
 
 const normalizePortalRecord = (item, index = 0) => {
   if (!item || typeof item !== "object") return null;
+  const url = item.url || item.website_url || "";
+  const description = item.description || item.meta_description || item.summary || "";
   return {
     ...item,
     id: item.id || `igod_${index + 1}`,
     name: item.name || item.organization_name || item.portal_title || `Portal ${index + 1}`,
-    url: item.url || item.website_url || "",
+    url,
+    website_url: item.website_url || url,
+    description,
+    summary: item.summary || description,
     status: item.status || "Active",
     category: item.category || "Government Services",
   };
@@ -373,7 +378,7 @@ const buildFallbackAggregate = ({ sourceStatus = {}, rajras = [], jansoochna = [
       { source: "RajRAS", count: rajras.length, color: "#3b82f6" },
       { source: "Jan Soochna", count: jansoochna.length, color: "#10b981" },
       { source: "MyScheme", count: myscheme.length, color: "#8b5cf6" },
-      { source: "IGOD Portals", count: igod.length, color: "#f97316" },
+      { source: "IGOD Directory", count: igod.length, color: "#f97316" },
     ],
     alerts: [],
     source_status: sourceStatus,
@@ -556,7 +561,7 @@ function DashboardTab({ agg, srcStatus, onScrapeAll, onScrapeOne, scraping, budg
             { icon:"📋", val:kpis.total_schemes,        label:"schemes scraped",  color:"#f97316", bg:"#fff7ed",
               tip:"Total scheme records from RajRAS (HTML scrape) + Jan Soochna (JSON API) + MyScheme (REST API)." },
             { icon:"🏛️", val:kpis.total_portals,        label:"IGOD portals",     color:"#3b82f6", bg:"#eff6ff",
-              tip:"Government portals listed on igod.gov.in/sg/RJ/SPMA/organizations — each is a separate Rajasthan govt website." },
+              tip:"Official Rajasthan government portals discovered from the IGOD directory and lightly enriched from each portal homepage." },
             { icon:"🗂️", val:kpis.unique_categories,    label:"categories",       color:"#10b981", bg:"#f0fdf4",
               tip:"Unique scheme categories found. Derived by keyword matching on scheme names — not from any API field directly." },
             { icon:"✅", val:`${kpis.sources_live}/4`,  label:"sources online",   color:"#8b5cf6", bg:"#faf5ff",
@@ -1409,7 +1414,7 @@ function PortalsTab({ agg, onScrapeAll }) {
         <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
         Government Portals — <span style={{ color:"#f97316" }}>IGOD Directory</span>
       </h2>
-        <InfoTip text="Scraped from igod.gov.in/sg/RJ/SPMA/organizations — official IGOD directory for Rajasthan. Each card shows the portal name, domain, and meta description from that portal's own homepage."/>
+        <InfoTip text="Scraped from the official IGOD Rajasthan directory. Each card shows the portal name, domain, status, and lightweight homepage metadata collected directly from the portal URL."/>
       </div>
       <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
         Source: igod.gov.in/sg/RJ/SPMA/organizations{totalListed?` · ${totalListed}`:""}
@@ -1444,12 +1449,29 @@ function PortalsTab({ agg, onScrapeAll }) {
                   {CAT_ICON[catName]||"🏛️"}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:700, fontSize:13, color:"#1f2937", marginBottom:2 }}>{portal.name}</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2, flexWrap:"wrap" }}>
+                    <div style={{ fontWeight:700, fontSize:13, color:"#1f2937" }}>{portal.name}</div>
+                    <Chip
+                      label={portal.status || "Unknown"}
+                      color={portal.status === "Active" ? "#10b981" : portal.status === "Unreachable" ? "#ef4444" : "#f59e0b"}
+                      small
+                    />
+                  </div>
                   <div style={{ fontSize:11, color:"#9ca3af", marginBottom:6,
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{portal.domain}</div>
+                  {(portal.page_title || portal.portal_title) && (
+                    <div style={{ fontSize:11, color:"#374151", fontWeight:600, marginBottom:4 }}>
+                      {portal.page_title || portal.portal_title}
+                    </div>
+                  )}
                   {portal.description&&<div style={{ fontSize:12, color:"#6b7280", lineHeight:1.4, marginBottom:6 }}>
-                    {portal.description.slice(0,120)}{portal.description.length>120?"…":""}
+                    {portal.description.slice(0,140)}{portal.description.length>140?"…":""}
                   </div>}
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:8 }}>
+                    {portal.content_type && <Chip label={portal.content_type} color="#64748b" small/>}
+                    {portal.response_time_ms ? <Chip label={`${portal.response_time_ms} ms`} color="#0ea5e9" small/> : null}
+                    {portal.redirect_url && portal.redirect_url !== portal.url ? <Chip label="Redirected" color="#8b5cf6" small/> : null}
+                  </div>
                   <a href={portal.url} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#f97316", fontWeight:600 }}>Visit ↗</a>
                 </div>
               </div>
@@ -3788,6 +3810,7 @@ export default function App() {
   const TABS=[
     {id:"dashboard",label:"Dashboard",icon:"◉"},
     {id:"schemes",label:"Schemes",icon:"⊞",badge:totalSchemes||null},
+    {id:"igod",label:"IGOD",icon:"🏛️",badge:totalPortals||null},
     {id:"budget",label:"Budget Data",icon:"₹"},
     {id:"districts",label:"Districts-Insights",icon:"🗺️"},
     //{id:"pmjdy",label:"Jan Dhan",icon:"🏦"},
@@ -3840,16 +3863,22 @@ export default function App() {
           borderTop:"1px solid #f3f4f6", overflowX:"auto" }}>
           {Object.entries(SRC).map(([sid,s])=>{
             const st=srcStatus[sid]||{};
+            const targetTab = sid === "igod" ? "igod" : sid === "myscheme" || sid === "rajras" || sid === "jansoochna" ? "schemes" : "dashboard";
             return (
-              <div key={sid} style={{ display:"flex", alignItems:"center", gap:6,
-                background:st.status==="ok"?`${s.color}10`:"#f1f5f9",
-                border:`1px solid ${st.status==="ok"?s.color+"30":"#e5e7eb"}`,
-                borderRadius:6, padding:"4px 10px", fontSize:11, whiteSpace:"nowrap" }}>
+              <button
+                key={sid}
+                onClick={()=>setTab(targetTab)}
+                style={{ display:"flex", alignItems:"center", gap:6,
+                  background:st.status==="ok"?`${s.color}10`:"#f1f5f9",
+                  border:`1px solid ${st.status==="ok"?s.color+"30":"#e5e7eb"}`,
+                  borderRadius:6, padding:"4px 10px", fontSize:11, whiteSpace:"nowrap",
+                  cursor:"pointer" }}
+              >
                 <StatusDot status={scraping[sid]?"loading":st.status||"idle"} animating={!!scraping[sid]}/>
                 <span style={{ fontWeight:600, color:"#374151" }}>{s.icon} {s.label}</span>
                 {st.count>0&&<span style={{ color:s.color, fontWeight:800 }}>{st.count}</span>}
                 {st.scraped_at&&<span style={{ color:"#94a3b8" }}>{timeAgo(st.scraped_at)}</span>}
-              </div>
+              </button>
             );
           })}
           {agg?.scraped_at&&(
@@ -3930,6 +3959,7 @@ export default function App() {
           scraping={scraping} scrapingAll={scrapingAll} online={online}
           budget={budget} budgetLoading={budgetLoading}/>}
         {tab==="schemes"&&<SchemesTab agg={agg} rajrasData={rajrasData} jansoochnaData={jansoochnaData} onScrapeAll={scrapeAll}/>}
+        {tab==="igod"&&<PortalsTab agg={agg} onScrapeAll={scrapeAll}/>}
         {tab==="budget"&&<BudgetDataTab budget={budget} budgetLoading={budgetLoading}
           onRefresh={()=>{ setBudget(null); setBudgetLoading(true);
             fetch(`${API}/budget?refresh=true`).then(r=>r.json()).then(d=>{setBudget(d);setBudgetLoading(false);}).catch(()=>setBudgetLoading(false)); }}/>}
