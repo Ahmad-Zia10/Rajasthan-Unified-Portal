@@ -1,0 +1,470 @@
+{
+  "scheme_id": "SBMG",
+  "scheme_name": "Swachh Bharat Mission Gramin",
+  "source_url": "https://sbm.gov.in/sbmgdashboard/StatesDashboard.aspx",
+  "fetched_at": "2026-03-20T22:08:23.741Z",
+  "state": "Rajasthan",
+  "data_year": "latest",
+  "districts": [
+    {
+      "district_name": "Ajmer",
+      "district_code": "119",
+      "metrics": {
+        "total_households": 724,
+        "toilets_constructed": 29,
+        "odf_status": true
+      },
+      "coverage_pct": 4.01,
+      "status": "critical"
+    },
+    {
+      "district_name": "Alwar",
+      "district_code": "104",
+      "metrics": {
+        "total_households": 1090,
+        "toilets_constructed": 9,
+        "odf_status": true
+      },
+      "coverage_pct": 0.83,
+      "status": "critical"
+    },
+    {
+      "district_name": "Balotra",
+      "district_code": "835",
+      "metrics": {
+        "total_households": 912,
+        "toilets_constructed": 68,
+        "odf_status": true
+      },
+      "coverage_pct": 7.46,
+      "status": "critical"
+    },
+    {
+      "district_name": "Banswara",
+      "district_code": "125",
+      "metrics": {
+        "total_households": 1497,
+        "toilets_constructed": 12,
+        "odf_status": true
+      },
+      "coverage_pct": 0.8,
+      "status": "critical"
+    },
+    {
+      "district_name": "Baran",
+      "district_code": "128",
+      "metrics": {
+        "total_households": 1097,
+        "toilets_constructed": 12,
+        "odf_status": true
+      },
+      "coverage_pct": 1.09,
+      "status": "critical"
+    },
+    {
+      "district_name": "Barmer",
+      "district_code": "115",
+      "metrics": {
+        "total_households": 1718,
+        "toilets_constructed": 60,
+        "odf_status": true
+      },
+      "coverage_pct": 3.49,
+      "status": "critical"
+    },
+    {
+      "district_name": "Beawar",
+      "district_code": "834",
+      "metrics": {
+        "total_households": 693,
+        "toilets_constructed": 2,
+        "odf_status": true
+      },
+      "coverage_pct": 0.29,
+      "status": "critical"
+    },
+    {
+      "district_name": "Bharatpur",
+      "district_code": "105",
+      "metrics": {
+        "total_households": 754,
+        "toilets_constructed": 5,
+        "odf_status": true
+      },
+      "coverage_pct": 0.66,
+      "status": "critical"
+    },
+    {
+      "district_name": "Bhilwara",
+      "district_code": "122",
+      "metrics": {
+        "total_households": 1738,
+        "toilets_constructed": 21,
+        "odf_status": true
+      },
+      "coverage_pct": 1.21,
+      "status": "critical"
+    },
+    {
+      "district_name": "Bikaner",
+      "district_code": "101",
+      "metrics": {
+        "total_households": 855,
+        "toilets_constructed": 11,
+        "odf_status": true
+      },
+      "coverage_pct": 1.29,
+      "status": "critical"
+    },
+    {
+      "district_name": "Bundi",
+      "district_code": "121",
+      "metrics": {
+        "total_households": 875,
+        "toilets_constructed": 28,
+        "odf_status": true
+      },
+      "coverage_pct": 3.2,
+      "status": "critical"
+    },
+    {
+      "district_name": "Chittorgarh",
+      "district_code": "126",
+      "metrics": {
+        "total_households": 1584,
+        "toilets_constructed": 6,
+        "odf_status": true
+      },
+      "coverage_pct": 0.38,
+      "status": "critical"
+    },
+    {
+      "district_name": "Churu",
+      "district_code": "102",
+      "metrics": {
+        "total_households": 867,
+        "toilets_constructed": 19,
+        "odf_status": true
+      },
+      "coverage_pct": 2.19,
+      "status": "critical"
+    },
+    {
+      "district_name": "Dausa",
+      "district_code": "109",
+      "metrics": {
+        "total_households": 1087,
+        "toilets_constructed": 4,
+        "odf_status": true
+      },
+      "coverage_pct": 0.37,
+      "status": "critical"
+    },
+    {
+      "district_name": "Deeg",
+      "district_code": "827",
+      "metrics": {
+        "total_households": 657,
+        "toilets_constructed": 3,
+        "odf_status": true
+      },
+      "coverage_pct": 0.46,
+      "status": "critical"
+    },
+    {
+      "district_name": "Dholpur",
+      "district_code": "106",
+      "metrics": {
+        "total_households": 797,
+        "toilets_constructed": 20,
+        "odf_status": true
+      },
+      "coverage_pct": 2.51,
+      "status": "critical"
+    },
+    {
+      "district_name": "Didwana Kuchaman",
+      "district_code": "828",
+      "metrics": {
+        "total_households": 784,
+        "toilets_constructed": 10,
+        "odf_status": true
+      },
+      "coverage_pct": 1.28,
+      "status": "critical"
+    },
+    {
+      "district_name": "Dungarpur",
+      "district_code": "124",
+      "metrics": {
+        "total_households": 975,
+        "toilets_constructed": 43,
+        "odf_status": true
+      },
+      "coverage_pct": 4.41,
+      "status": "critical"
+    },
+    {
+      "district_name": "Sri Ganganagar",
+      "district_code": "099",
+      "metrics": {
+        "total_households": 2809,
+        "toilets_constructed": 141,
+        "odf_status": true
+      },
+      "coverage_pct": 5.02,
+      "status": "critical"
+    },
+    {
+      "district_name": "Hanumangarh",
+      "district_code": "100",
+      "metrics": {
+        "total_households": 1814,
+        "toilets_constructed": 73,
+        "odf_status": true
+      },
+      "coverage_pct": 4.02,
+      "status": "critical"
+    },
+    {
+      "district_name": "Jaipur",
+      "district_code": "110",
+      "metrics": {
+        "total_households": 1879,
+        "toilets_constructed": 19,
+        "odf_status": true
+      },
+      "coverage_pct": 1.01,
+      "status": "critical"
+    },
+    {
+      "district_name": "Jaisalmer",
+      "district_code": "114",
+      "metrics": {
+        "total_households": 688,
+        "toilets_constructed": 33,
+        "odf_status": true
+      },
+      "coverage_pct": 4.8,
+      "status": "critical"
+    },
+    {
+      "district_name": "Jalore",
+      "district_code": "116",
+      "metrics": {
+        "total_households": 792,
+        "toilets_constructed": 25,
+        "odf_status": true
+      },
+      "coverage_pct": 3.16,
+      "status": "critical"
+    },
+    {
+      "district_name": "Jhalawar",
+      "district_code": "129",
+      "metrics": {
+        "total_households": 1470,
+        "toilets_constructed": 15,
+        "odf_status": true
+      },
+      "coverage_pct": 1.02,
+      "status": "critical"
+    },
+    {
+      "district_name": "Jhunjhunu",
+      "district_code": "103",
+      "metrics": {
+        "total_households": 976,
+        "toilets_constructed": 61,
+        "odf_status": true
+      },
+      "coverage_pct": 6.25,
+      "status": "critical"
+    },
+    {
+      "district_name": "Jodhpur",
+      "district_code": "113",
+      "metrics": {
+        "total_households": 1188,
+        "toilets_constructed": 37,
+        "odf_status": true
+      },
+      "coverage_pct": 3.11,
+      "status": "critical"
+    },
+    {
+      "district_name": "Karauli",
+      "district_code": "107",
+      "metrics": {
+        "total_households": 846,
+        "toilets_constructed": 4,
+        "odf_status": true
+      },
+      "coverage_pct": 0.47,
+      "status": "critical"
+    },
+    {
+      "district_name": "Khairthal Tijara",
+      "district_code": "830",
+      "metrics": {
+        "total_households": 570,
+        "toilets_constructed": 4,
+        "odf_status": true
+      },
+      "coverage_pct": 0.7,
+      "status": "critical"
+    },
+    {
+      "district_name": "Kota",
+      "district_code": "127",
+      "metrics": {
+        "total_households": 801,
+        "toilets_constructed": 12,
+        "odf_status": true
+      },
+      "coverage_pct": 1.5,
+      "status": "critical"
+    },
+    {
+      "district_name": "Kotputli Behror",
+      "district_code": "842",
+      "metrics": {
+        "total_households": 573,
+        "toilets_constructed": 4,
+        "odf_status": true
+      },
+      "coverage_pct": 0.7,
+      "status": "critical"
+    },
+    {
+      "district_name": "Nagaur",
+      "district_code": "112",
+      "metrics": {
+        "total_households": 827,
+        "toilets_constructed": 13,
+        "odf_status": true
+      },
+      "coverage_pct": 1.57,
+      "status": "critical"
+    },
+    {
+      "district_name": "Pali",
+      "district_code": "118",
+      "metrics": {
+        "total_households": 774,
+        "toilets_constructed": 28,
+        "odf_status": true
+      },
+      "coverage_pct": 3.62,
+      "status": "critical"
+    },
+    {
+      "district_name": "Phalodi",
+      "district_code": "832",
+      "metrics": {
+        "total_households": 729,
+        "toilets_constructed": 39,
+        "odf_status": true
+      },
+      "coverage_pct": 5.35,
+      "status": "critical"
+    },
+    {
+      "district_name": "Pratapgarh",
+      "district_code": "131",
+      "metrics": {
+        "total_households": 969,
+        "toilets_constructed": 30,
+        "odf_status": true
+      },
+      "coverage_pct": 3.1,
+      "status": "critical"
+    },
+    {
+      "district_name": "Rajsamand",
+      "district_code": "123",
+      "metrics": {
+        "total_households": 1053,
+        "toilets_constructed": 72,
+        "odf_status": true
+      },
+      "coverage_pct": 6.84,
+      "status": "critical"
+    },
+    {
+      "district_name": "Salumbar",
+      "district_code": "837",
+      "metrics": {
+        "total_households": 610,
+        "toilets_constructed": 29,
+        "odf_status": true
+      },
+      "coverage_pct": 4.75,
+      "status": "critical"
+    },
+    {
+      "district_name": "Sawai Madhopur",
+      "district_code": "108",
+      "metrics": {
+        "total_households": 736,
+        "toilets_constructed": 17,
+        "odf_status": true
+      },
+      "coverage_pct": 2.31,
+      "status": "critical"
+    },
+    {
+      "district_name": "Sikar",
+      "district_code": "111",
+      "metrics": {
+        "total_households": 1192,
+        "toilets_constructed": 39,
+        "odf_status": true
+      },
+      "coverage_pct": 3.27,
+      "status": "critical"
+    },
+    {
+      "district_name": "Sirohi",
+      "district_code": "117",
+      "metrics": {
+        "total_households": 466,
+        "toilets_constructed": 67,
+        "odf_status": true
+      },
+      "coverage_pct": 14.38,
+      "status": "critical"
+    },
+    {
+      "district_name": "Tonk",
+      "district_code": "120",
+      "metrics": {
+        "total_households": 1119,
+        "toilets_constructed": 36,
+        "odf_status": true
+      },
+      "coverage_pct": 3.22,
+      "status": "critical"
+    },
+    {
+      "district_name": "Udaipur",
+      "district_code": "130",
+      "metrics": {
+        "total_households": 1878,
+        "toilets_constructed": 148,
+        "odf_status": true
+      },
+      "coverage_pct": 7.88,
+      "status": "critical"
+    }
+  ],
+  "state_totals": {
+    "total_households": 43463,
+    "toilets_constructed": 1308
+  },
+  "metadata": {
+    "access_method": "direct_fetch",
+    "data_reliability": "confirmed_real",
+    "notes": "SBM-G does not expose district toilet-household fields directly in a simple HTML table here, so this fetch uses the Rajasthan district objects embedded in the public dashboard script. Coverage uses the published TotalStarVillagePer field from the official dashboard."
+  }
+}

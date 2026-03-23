@@ -1,0 +1,26 @@
+{
+  "scheme_id": "PMAYG",
+  "scheme_name": "PM Awas Yojana Gramin — Rajasthan",
+  "source_url": "https://rhreporting.nic.in/netiay/DataAnalytics/PhysicalProgressRpt.aspx",
+  "fetched_at": "2026-03-20T22:08:16.607Z",
+  "state": "Rajasthan",
+  "data_year": "latest",
+  "districts": [
+    {
+      "district_name": "FETCH_FAILED",
+      "district_code": null,
+      "metrics": {
+        "error": "The PMAY-G analytics report is officially unavailable on the source portal between 12:00 AM and 04:00 AM.",
+        "fallback_suggestion": "Re-run this fetch outside the source maintenance window or switch to a different PMAY-G public report path."
+      },
+      "coverage_pct": null,
+      "status": "critical"
+    }
+  ],
+  "state_totals": {},
+  "metadata": {
+    "access_method": "direct_fetch",
+    "data_reliability": "estimated",
+    "notes": "Re-run this fetch outside the source maintenance window or switch to a different PMAY-G public report path."
+  }
+}
