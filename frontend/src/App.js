@@ -768,16 +768,31 @@ function SchemeDetailPanel({ scheme, onClose }) {
         zIndex:1000, backdropFilter:"blur(2px)",
       }}/>
       <div style={{
-        position:"fixed", top:0, right:0, bottom:0, width:500,
+        position:"fixed",
+        top:"50%", left:"50%",
+        transform:"translate(-50%, -50%)",
+        width:"min(600px, 95vw)",
+        maxHeight:"90vh",
         background:"white", zIndex:1001, overflowY:"auto",
-        boxShadow:"-6px 0 48px rgba(0,0,0,0.15)",
+        boxShadow:"0 24px 80px rgba(0,0,0,0.25)",
+        borderRadius:"20px",
         display:"flex", flexDirection:"column",
-        animation:"slideInRight 0.2s ease",
+        animation:"popIn 0.2s ease",
       }}>
-        <style>{`@keyframes slideInRight{from{transform:translateX(50px);opacity:0}to{transform:translateX(0);opacity:1}}`}</style>
+      <style>{`
+          @keyframes popIn {
+            from { transform:translate(-50%, -48%); opacity:0; }
+            to   { transform:translate(-50%, -50%); opacity:1; }
+          }
+        `}</style>
 
         {/* Header */}
-        <div style={{ padding:"22px 24px 18px", borderBottom:"1px solid #f0f2f5" }}>
+        <div style={{ 
+          padding:"22px 24px 18px",
+          borderBottom:"1px solid #f0f2f5",
+          background:`linear-gradient(135deg, ${srcMeta.color}08, white)`,
+          borderRadius:"20px 20px 0 0", 
+          }}>
           <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
             <div style={{ width:50, height:50, borderRadius:12, flexShrink:0,
               background:`${srcMeta.color}18`, display:"flex", alignItems:"center",
@@ -827,148 +842,122 @@ function SchemeDetailPanel({ scheme, onClose }) {
           </div>
         )}
 
-        {/* Progress */}
-        <div style={{ padding:"20px 24px", borderBottom:"1px solid #f0f2f5" }}>
-          {progressPct != null ? (
-            <>
-              <div style={{ display:"flex", alignItems:"center",
-                justifyContent:"space-between", marginBottom:14 }}>
-                <span style={{ fontSize:13, fontWeight:500, color:"#374151" }}>
-                  Implementation Progress
-                </span>
-                <div style={{ position:"relative", width:56, height:56 }}>
-                  <svg width="56" height="56" style={{ transform:"rotate(-90deg)" }}>
-                    <circle cx="28" cy="28" r="22" fill="none" stroke="#e5e7eb" strokeWidth="5"/>
-                    <circle cx="28" cy="28" r="22" fill="none"
-                      strokeWidth="5"
-                      stroke={progressColor}
-                      strokeDasharray={`${((progressPct || 0)/100)*138.2} 138.2`}
-                      strokeLinecap="round"/>
-                  </svg>
-                  <div style={{ position:"absolute", inset:0, display:"flex",
-                    alignItems:"center", justifyContent:"center",
-                    fontSize:11, fontWeight:800, color:progressColor }}>
-                    {progressLabel}
-                  </div>
-                </div>
-              </div>
-              <div style={{ background:"#e5e7eb", borderRadius:4, height:7,
-                overflow:"hidden", marginBottom:6 }}>
-                <div style={{ width:`${Math.min(progressPct || 0,100)}%`, height:"100%",
-                  background:progressColor, borderRadius:4 }}/>
-              </div>
-              <div style={{ display:"flex", justifyContent:"space-between",
-                fontSize:11, color:"#9ca3af" }}>
-                <span>0%</span>
-                <span style={{ color:"#10b981", fontWeight:600 }}>✓ On Track</span>
-                <span>100%</span>
-              </div>
-              {scheme.progress_source && (
-                <div style={{ marginTop:8, fontSize:11.5, color:"#6b7280", lineHeight:1.4 }}>
-                  Source signal: {scheme.progress_source}
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={{
-              background:"#f9fafb",
-              border:"1px solid #e5e7eb",
-              borderRadius:10,
-              padding:"12px 14px",
-            }}>
-              <div style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:4 }}>
+        {/* Progress — only renders when real data exists */}
+        {progressPct != null && (
+          <div style={{ padding:"20px 24px", borderBottom:"1px solid #f0f2f5" }}>
+            <div style={{ display:"flex", alignItems:"center",
+              justifyContent:"space-between", marginBottom:14 }}>
+              <span style={{ fontSize:13, fontWeight:500, color:"#374151" }}>
                 Implementation Progress
-              </div>
-              <div style={{ fontSize:12.5, color:"#6b7280" }}>
-                No official implementation progress is available from current source data.
+              </span>
+              <div style={{ position:"relative", width:56, height:56 }}>
+                <svg width="56" height="56" style={{ transform:"rotate(-90deg)" }}>
+                  <circle cx="28" cy="28" r="22" fill="none" stroke="#e5e7eb" strokeWidth="5"/>
+                  <circle cx="28" cy="28" r="22" fill="none"
+                    strokeWidth="5"
+                    stroke={progressColor}
+                    strokeDasharray={`${((progressPct || 0)/100)*138.2} 138.2`}
+                    strokeLinecap="round"/>
+                </svg>
+                <div style={{ position:"absolute", inset:0, display:"flex",
+                  alignItems:"center", justifyContent:"center",
+                  fontSize:11, fontWeight:800, color:progressColor }}>
+                  {progressLabel}
+                </div>
               </div>
             </div>
-          )}
-        </div>
+            <div style={{ background:"#e5e7eb", borderRadius:4, height:7,
+              overflow:"hidden", marginBottom:6 }}>
+              <div style={{ width:`${Math.min(progressPct || 0,100)}%`, height:"100%",
+                background:progressColor, borderRadius:4 }}/>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between",
+              fontSize:11, color:"#9ca3af" }}>
+              <span>0%</span>
+              <span style={{ color:"#10b981", fontWeight:600 }}>✓ On Track</span>
+              <span>100%</span>
+            </div>
+            {scheme.progress_source && (
+              <div style={{ marginTop:8, fontSize:11.5, color:"#6b7280", lineHeight:1.4 }}>
+                Source signal: {scheme.progress_source}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Summary */}
         <div style={{ padding:"18px 24px", borderBottom:"1px solid #f0f2f5" }}>
           <Label>Scheme Summary</Label>
           <div style={{ fontSize:13.5, color:"#374151", lineHeight:1.65 }}>
-            {schemeSummary}
+            {schemeSummary.replace(/[\u0900-\u097F]+/g, "")
+              .replace(/^[\s\)\(,\.]+/, "")
+              .replace(/\s+/g, " ")
+              .trim()}
           </div>
         </div>
 
         {/* Official metrics chart */}
+        {chartData.length > 0 && (
         <div style={{ padding:"18px 24px", borderBottom:"1px solid #f0f2f5" }}>
           <Label>Official Scheme Metrics</Label>
-          {chartData.length > 0 ? (
-            <>
-              <div style={{ height:220 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={chartData}
-                    layout="vertical"
-                    margin={{ top: 8, right: 18, bottom: 8, left: 18 }}
-                  >
-                    <XAxis type="number" hide />
-                    <YAxis
-                      type="category"
-                      dataKey="label"
-                      width={110}
-                      tick={{ fontSize: 11, fill: "#6b7280" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      formatter={(value, name, payload) => [payload?.payload?.display || value, payload?.payload?.label || name]}
-                      labelFormatter={() => "Official source figure"}
-                      contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 12 }}
-                    />
-                    <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`${entry.label}_${index}`} fill={entry.color || srcMeta.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+          <div style={{ height:220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                layout="vertical"
+                margin={{ top: 8, right: 18, bottom: 8, left: 18 }}
+              >
+                <XAxis type="number" hide />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  width={110}
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  formatter={(value, name, payload) => [payload?.payload?.display || value, payload?.payload?.label || name]}
+                  labelFormatter={() => "Official source figure"}
+                  contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 12 }}
+                />
+                <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`${entry.label}_${index}`} fill={entry.color || srcMeta.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ display:"grid", gap:8, marginTop:8 }}>
+            {chartData.map((metric, index) => (
+              <div key={`${metric.label}_${index}`} style={{
+                display:"flex", justifyContent:"space-between", gap:10,
+                background:"#f8fafc", border:"1px solid #e5e7eb",
+                borderRadius:10, padding:"9px 11px"
+              }}>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:"#111827" }}>{metric.label}</div>
+                  <div style={{ fontSize:11, color:"#6b7280", lineHeight:1.45 }}>{metric.source}</div>
+                </div>
+                <div style={{ fontSize:12, fontWeight:800, color:metric.color || srcMeta.color, whiteSpace:"nowrap" }}>
+                  {metric.display}
+                </div>
               </div>
-              <div style={{ display:"grid", gap:8, marginTop:8 }}>
-                {chartData.map((metric, index) => (
-                  <div key={`${metric.label}_${index}`} style={{
-                    display:"flex", justifyContent:"space-between", gap:10,
-                    background:"#f8fafc", border:"1px solid #e5e7eb",
-                    borderRadius:10, padding:"9px 11px"
-                  }}>
-                    <div style={{ minWidth:0 }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:"#111827" }}>{metric.label}</div>
-                      <div style={{ fontSize:11, color:"#6b7280", lineHeight:1.45 }}>{metric.source}</div>
-                    </div>
-                    <div style={{ fontSize:12, fontWeight:800, color:metric.color || srcMeta.color, whiteSpace:"nowrap" }}>
-                      {metric.display}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div style={{
-              background:"#f9fafb",
-              border:"1px solid #e5e7eb",
-              borderRadius:10,
-              padding:"12px 14px",
-            }}>
-              <div style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:4 }}>
-                Official quantified data is not available
-              </div>
-              <div style={{ fontSize:12.5, color:"#6b7280", lineHeight:1.5 }}>
-                This portal record does not publish a reliable numeric scheme figure beyond the text summary, so the dashboard avoids showing an invented chart.
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
+      )}
 
         {/* Coverage / Benefits */}
         {(scheme.benefit || scheme.description) && (
           <div style={{ padding:"18px 24px", borderBottom:"1px solid #f0f2f5" }}>
             <Label>Coverage / Benefits</Label>
             <div style={{ fontSize:14, color:"#111827", lineHeight:1.6 }}>
-              {scheme.benefit || scheme.description}
+              {(scheme.benefit || scheme.description || "")
+                .replace(/[\u0900-\u097F]+/g, "")
+                .replace(/\s+/g, " ")
+                .trim()}
             </div>
           </div>
         )}
@@ -978,7 +967,11 @@ function SchemeDetailPanel({ scheme, onClose }) {
           <div style={{ padding:"18px 24px", borderBottom:"1px solid #f0f2f5" }}>
             <Label>Key Facts</Label>
             <div style={{ fontSize:13, color:"#374151", lineHeight:1.65 }}>
-              {keyFacts.join(". ").replace(/\.\./g, ".")}
+              {keyFacts
+                .map(f => f.replace(/[\u0900-\u097F]+/g, "").replace(/\s+/g, " ").trim())
+                .filter(f => f.length > 5)
+                .join(". ")
+                .replace(/\.\./g, ".")}
             </div>
           </div>
         )}
@@ -1233,8 +1226,8 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
         {catMatch && <span> · <span style={{ color:"#f97316" }}>{activePill?.label}</span></span>}
       </div>
 
-      {/* 4-column card grid */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14 }}>
+      {/* 3-column card grid */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
         {filtered.map((scheme, i) => {
           const srcMeta    = SRC[scheme._src] || SRC.myscheme;
           const benefitText = cleanInlineText(scheme.benefit || scheme.description || "");
@@ -1242,9 +1235,12 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
           const launchYear  = scheme.launched
             ? String(scheme.launched).match(/\d{4}/)?.[0]
             : scheme.scraped_at?.slice(0,4) || null;
-          const cardSummary = benefitText
-            ? `${benefitText.slice(0, 96)}${benefitText.length > 96 ? "..." : ""}`
-            : `Official ${String(scheme.category || "public welfare").toLowerCase()} scheme record available from ${scheme._src_label || srcMeta.label}.`;
+          const cleanedBenefit = benefitText
+            ? benefitText.replace(/[\u0900-\u097F]+/g, "").replace(/\s+/g, " ").trim()
+            : "";
+          const cardSummary = cleanedBenefit && cleanedBenefit.length > 20
+            ? `${cleanedBenefit.slice(0, 96)}${cleanedBenefit.length > 96 ? "..." : ""}`
+            : `Official ${String(scheme.category || "public welfare").toLowerCase()} scheme from ${scheme._src_label || srcMeta.label}.`;
           const cardStats = [
             {
               label:"Beneficiaries",
@@ -1314,7 +1310,7 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
                       borderRadius:999, padding:"4px 8px", fontSize:10, fontWeight:700,
                       whiteSpace:"nowrap", flexShrink:0
                     }}>
-                      {hasAnyMetric ? `${availableStatCount}/3 metrics` : "Text only"}
+                      {hasAnyMetric ? `${availableStatCount}/3 metrics` : "View details →"}
                     </div>
                   </div>
                 </div>
@@ -1326,27 +1322,29 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
                 {cardSummary}
               </div>
 
-              {/* Stats row */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
-                gap:8, marginBottom:10 }}>
-                {cardStats.map((stat,j) => (
-                  <div key={j} style={{
-                    background: stat.val ? `${stat.color}10` : "#f8fafc",
-                    border: `1px solid ${stat.val ? `${stat.color}18` : "#edf2f7"}`,
-                    borderRadius:10, padding:"8px 8px 7px", minHeight:58
-                  }}>
-                    <div style={{ fontSize:9, fontWeight:700, color:"#94a3b8",
-                      letterSpacing:"0.06em", marginBottom:5, textTransform:"uppercase" }}>{stat.label}</div>
-                    <div style={{ fontSize:13, fontWeight:800,
-                      color:stat.color, lineHeight:1.2 }}>
-                      {stat.val
-                        ? (typeof stat.val==="number"
-                            ? stat.val.toLocaleString("en-IN") : stat.val)
-                        : <span style={{ color:"#94a3b8", fontSize:11.5, fontWeight:700 }}>{stat.emptyLabel}</span>}
+              {/* Stats row — only renders if at least one stat has real data */}
+              {hasAnyMetric && (
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
+                  gap:8, marginBottom:10 }}>
+                  {cardStats.filter(stat => stat.val).map((stat,j) => (
+                    <div key={j} style={{
+                      background:`${stat.color}10`,
+                      border:`1px solid ${stat.color}18`,
+                      borderRadius:10, padding:"8px 8px 7px",
+                    }}>
+                      <div style={{ fontSize:9, fontWeight:700, color:"#94a3b8",
+                        letterSpacing:"0.06em", marginBottom:5, textTransform:"uppercase" }}>
+                        {stat.label}
+                      </div>
+                      <div style={{ fontSize:13, fontWeight:800,
+                        color:stat.color, lineHeight:1.2 }}>
+                        {typeof stat.val==="number"
+                          ? stat.val.toLocaleString("en-IN") : stat.val}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               {/* Progress bar */}
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
