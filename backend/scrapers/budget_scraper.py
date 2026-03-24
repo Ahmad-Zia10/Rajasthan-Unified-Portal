@@ -297,6 +297,7 @@ def scrape_budget():
     merged["sparkline_meta"] = {
         "live_years":   sparkline_result["live_years"],
         "total_years":  sparkline_result["total_years"],
+        "years":        sparkline_result["years"],
         "note":         sparkline_result["note"],
         "source":       sparkline_result["source"],
     }

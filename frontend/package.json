@@ -9,6 +9,11 @@
     "recharts": "^2.12.7",
     "axios": "^1.7.2"
   },
+  "devDependencies": {
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19"
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build"

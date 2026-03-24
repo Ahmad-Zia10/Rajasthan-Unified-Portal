@@ -427,8 +427,6 @@ def aggregate():
     }
 
     # ── 6. Alerts — built from real scraper data patterns ─────────────────────
-    alerts = _build_alerts(schemes, portals, igod_raw)
-
     # ── 7. Source metadata ─────────────────────────────────────────────────────
     source_status = {
         sid: {
@@ -445,6 +443,7 @@ def aggregate():
     jjm_districts = jjm_cache.get("data", [])
     pmksy_cache   = _cache.get(PMKSY_CACHE_KEY, {})
     pmksy_districts = pmksy_cache.get("data", [])
+    alerts = _build_alerts(schemes, portals, igod_raw, jjm_districts, source_status)
 
     return {
         "scraped_at":     datetime.utcnow().isoformat() + "Z",
@@ -460,12 +459,14 @@ def aggregate():
     }
 
 
-def _build_alerts(schemes, portals, igod_raw):
+def _build_alerts(schemes, portals, igod_raw, jjm_districts=None, source_status=None):
     """
     Generate intelligence alerts entirely from scraped data.
     Every alert title/body references actual counts and names from scrapers.
     """
     alerts = []
+    jjm_districts = jjm_districts or []
+    source_status = source_status or {}
 
     # ── Health schemes
     health = [s for s in schemes if re.search(r"health|medical|ayush|chiranjeevi|dawa|hospital", s.get("category", ""), re.I)]
@@ -476,7 +477,7 @@ def _build_alerts(schemes, portals, igod_raw):
             "title": f"{len(health)} Health Schemes Active — Rajasthan",
             "date": _latest_scraped(health),
             "body": f"{len(health)} health-related schemes scraped from official sources. Key schemes: {names}{'…' if len(health)>3 else ''}.",
-            "tags": [f"→ Review scheme coverage", f"🏥 {len(health)} health schemes", "📍 State-wide"],
+            "tags": [f"🏥 {len(health)} health schemes", f"Top schemes: {min(len(health), 3)} highlighted", "📍 State-wide"],
             "source": f"Source: {', '.join(set(s.get('_src_label','') for s in health))}",
             "borderColor": "#10b981", "bgColor": "#f0fdf4", "tagColor": "#10b981",
         })
@@ -490,7 +491,7 @@ def _build_alerts(schemes, portals, igod_raw):
             "title": f"{len(agri)} Agriculture Schemes Found",
             "date": _latest_scraped(agri),
             "body": f"{len(agri)} agriculture and farmer welfare schemes scraped. Top schemes: {names}.",
-            "tags": [f"🌾 {len(agri)} agri schemes", "→ Check PM Kisan coverage", "📍 All districts"],
+            "tags": [f"🌾 {len(agri)} agri schemes", f"Top 3: {min(len(agri), 3)} named", "📍 State-wide"],
             "source": f"Source: {', '.join(set(s.get('_src_label','') for s in agri))}",
             "borderColor": "#10b981", "bgColor": "#f0fdf4", "tagColor": "#10b981",
         })
@@ -504,7 +505,7 @@ def _build_alerts(schemes, portals, igod_raw):
             "title": f"{len(social)} Social Welfare Schemes — Beneficiary Verification Needed",
             "date": _latest_scraped(social),
             "body": f"{len(social)} social welfare schemes active. Includes: {names}. Recommend verifying beneficiary lists for accuracy.",
-            "tags": [f"🛡️ {len(social)} welfare schemes", "→ Verify beneficiary data", "📍 Jan Soochna Portal"],
+            "tags": [f"🛡️ {len(social)} welfare schemes", f"Named schemes: {min(len(social), 3)}", "📍 Beneficiary-facing schemes"],
             "source": f"Source: {', '.join(set(s.get('_src_label','') for s in social))}",
             "borderColor": "#8b5cf6", "bgColor": "#f5f3ff", "tagColor": "#8b5cf6",
         })
@@ -517,7 +518,7 @@ def _build_alerts(schemes, portals, igod_raw):
             "title": f"{len(portals)} Official Portals — IGOD Rajasthan Directory",
             "date": _latest_scraped(portals),
             "body": f"IGOD directory lists {len(portals)} active Rajasthan government portals. Categories include: {', '.join(cats)}.",
-            "tags": [f"🏛️ {len(portals)} portals listed", "→ Check portal uptime", "📍 igod.gov.in"],
+            "tags": [f"🏛️ {len(portals)} portals listed", f"{len(cats)} portal categories sampled", "📍 IGOD directory"],
             "source": "Source: igod.gov.in/sg/RJ/SPMA/organizations",
             "borderColor": "#3b82f6", "bgColor": "#eff6ff", "tagColor": "#3b82f6",
         })
@@ -526,25 +527,41 @@ def _build_alerts(schemes, portals, igod_raw):
     water = [s for s in schemes if re.search(r"water|jal|sanitation|swachh", s.get("category", ""), re.I)]
     if water:
         names = ", ".join(s["name"] for s in water[:2])
+        live_jjm_rows = [
+            row for row in jjm_districts
+            if isinstance(row.get("coverage"), (int, float))
+        ]
+        lowest_rows = sorted(live_jjm_rows, key=lambda row: row.get("coverage", 0))[:2]
+        lagging_text = ", ".join(
+            f"{row.get('name')} ({row.get('coverage'):.1f}%)"
+            for row in lowest_rows
+            if row.get("name")
+        )
+        avg_coverage = (
+            sum(row.get("coverage", 0) for row in live_jjm_rows) / len(live_jjm_rows)
+            if live_jjm_rows else None
+        )
+        coverage_text = f"Current JJM district average is {avg_coverage:.1f}%." if avg_coverage is not None else ""
+        lagging_note = f" Lowest live-coverage districts: {lagging_text}." if lagging_text else ""
         alerts.append({
             "id": "alert_water", "type": "CRITICAL", "severity": "Critical", "icon": "🚨",
             "title": f"JJM Coverage Gap — {len(water)} Water Schemes Tracked",
-            "date": _latest_scraped(water),
-            "body": f"{len(water)} water & sanitation schemes found in official sources including {names}. Rajasthan's JJM coverage needs monitoring — Barmer & Jaisalmer lag national average significantly.",
-            "tags": ["→ Expedite JJM coverage", f"💧 {len(water)} water schemes", "📍 Barmer / Jaisalmer critical"],
+            "date": _latest_scraped(live_jjm_rows) or _latest_scraped(water),
+            "body": f"{len(water)} water & sanitation schemes found in official sources including {names}.{coverage_text}{lagging_note}",
+            "tags": [f"💧 {len(water)} water schemes", f"{len(live_jjm_rows)} JJM district rows", "📍 Low-coverage districts highlighted" if lagging_text else "📍 District coverage pending"],
             "source": f"Source: {', '.join(set(s.get('_src_label','') for s in water))} / JJM MIS",
             "borderColor": "#ef4444", "bgColor": "#fff5f5", "tagColor": "#ef4444",
         })
 
     # ── Error warnings for failed scrapes
-    for sid, entry in _cache.items():
+    for sid, entry in source_status.items():
         if entry.get("status") == "error":
             alerts.append({
                 "id": f"alert_err_{sid}", "type": "WARNING", "severity": "Warning", "icon": "⚠️",
                 "title": f"Scrape Warning — {sid.upper()} fetch failed",
                 "date": entry.get("scraped_at", ""),
                 "body": f"Live scrape of {sid} failed. Showing cached/fallback data. Error: {str(entry.get('error',''))[:120]}. Click ↺ to retry.",
-                "tags": [f"→ Retry {sid} scrape", f"⚠️ {sid} offline", "📍 Check internet / API"],
+                "tags": [f"⚠️ {sid} offline", f"Cached rows: {entry.get('count', 0)}", "📍 Retry scraper"],
                 "source": f"Source: Dashboard system monitor",
                 "borderColor": "#f97316", "bgColor": "#fff7ed", "tagColor": "#f97316",
             })
