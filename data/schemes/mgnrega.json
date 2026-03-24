@@ -1,0 +1,26 @@
+{
+  "scheme_id": "MGNREGA",
+  "scheme_name": "Mahatma Gandhi NREGA — Rajasthan 2024-25",
+  "source_url": "https://nreganarep.nic.in/netnrega/MISreport4.aspx?fin_year=2024-2025&flag=S&state_code=27&state_name=RAJASTHAN&district_code=0&district_name=ALL+DISTRICTS&block_code=0&block_name=ALL+BLOCKS&panchayat_code=0&panchayat_name=ALL+PANCHAYATS&unit=lakhs&Digest=x",
+  "fetched_at": "2026-03-20T22:08:00.623Z",
+  "state": "Rajasthan",
+  "data_year": "2024-25",
+  "districts": [
+    {
+      "district_name": "FETCH_FAILED",
+      "district_code": null,
+      "metrics": {
+        "error": "The Rajasthan district table did not expose parseable Job Cards / Households Worked columns.",
+        "fallback_suggestion": "The portal may have changed table markup or moved the data behind a report navigation step."
+      },
+      "coverage_pct": null,
+      "status": "critical"
+    }
+  ],
+  "state_totals": {},
+  "metadata": {
+    "access_method": "playwright",
+    "data_reliability": "estimated",
+    "notes": "The portal may have changed table markup or moved the data behind a report navigation step."
+  }
+}

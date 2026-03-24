@@ -21,7 +21,7 @@ const API =
     : "https://rajasthan-cgwj.onrender.com");
 
 const SRC = {
-  igod:       { label: "IGOD Portal",  icon: "🏛️", color: "#f97316", url: "https://igod.gov.in" },
+  igod:       { label: "IGOD Directory", icon: "🏛️", color: "#f97316", url: "https://igod.gov.in/sg/RJ/SPMA/organizations" },
   rajras:     { label: "RajRAS",       icon: "📋", color: "#3b82f6", url: "https://rajras.in" },
   jansoochna: { label: "Jan Soochna",  icon: "👁️", color: "#10b981", url: "https://jansoochna.rajasthan.gov.in" },
   myscheme:   { label: "MyScheme",     icon: "🔍", color: "#8b5cf6", url: "https://myscheme.gov.in" },
@@ -315,11 +315,16 @@ const normalizeSchemeRecord = (sourceId, item, index = 0) => {
 
 const normalizePortalRecord = (item, index = 0) => {
   if (!item || typeof item !== "object") return null;
+  const url = item.url || item.website_url || "";
+  const description = item.description || item.meta_description || item.summary || "";
   return {
     ...item,
     id: item.id || `igod_${index + 1}`,
     name: item.name || item.organization_name || item.portal_title || `Portal ${index + 1}`,
-    url: item.url || item.website_url || "",
+    url,
+    website_url: item.website_url || url,
+    description,
+    summary: item.summary || description,
     status: item.status || "Active",
     category: item.category || "Government Services",
   };
@@ -373,7 +378,7 @@ const buildFallbackAggregate = ({ sourceStatus = {}, rajras = [], jansoochna = [
       { source: "RajRAS", count: rajras.length, color: "#3b82f6" },
       { source: "Jan Soochna", count: jansoochna.length, color: "#10b981" },
       { source: "MyScheme", count: myscheme.length, color: "#8b5cf6" },
-      { source: "IGOD Portals", count: igod.length, color: "#f97316" },
+      { source: "IGOD Directory", count: igod.length, color: "#f97316" },
     ],
     alerts: [],
     source_status: sourceStatus,
@@ -556,7 +561,7 @@ function DashboardTab({ agg, srcStatus, onScrapeAll, onScrapeOne, scraping, budg
             { icon:"📋", val:kpis.total_schemes,        label:"schemes scraped",  color:"#f97316", bg:"#fff7ed",
               tip:"Total scheme records from RajRAS (HTML scrape) + Jan Soochna (JSON API) + MyScheme (REST API)." },
             { icon:"🏛️", val:kpis.total_portals,        label:"IGOD portals",     color:"#3b82f6", bg:"#eff6ff",
-              tip:"Government portals listed on igod.gov.in/sg/RJ/SPMA/organizations — each is a separate Rajasthan govt website." },
+              tip:"Official Rajasthan government portals discovered from the IGOD directory and lightly enriched from each portal homepage." },
             { icon:"🗂️", val:kpis.unique_categories,    label:"categories",       color:"#10b981", bg:"#f0fdf4",
               tip:"Unique scheme categories found. Derived by keyword matching on scheme names — not from any API field directly." },
             { icon:"✅", val:`${kpis.sources_live}/4`,  label:"sources online",   color:"#8b5cf6", bg:"#faf5ff",
@@ -743,7 +748,7 @@ function SchemeDetailPanel({ scheme, onClose }) {
     { label:"Beneficiaries", value:beneficiaries, color:srcMeta.color, borderRight:true },
     { label:"Budget (2025-26)", value:budget, color:"#111827" },
     { label:"Launch Year", value:launchYear, color:"#111827", borderRight:true },
-    { label:"Districts", value:districts, color:"#111827" },
+    { label:"Districts Insights", value:districts, color:"#111827" },
   ].filter(card => card.value);
 
   const keyFacts = [
@@ -1407,7 +1412,7 @@ function PortalsTab({ agg, onScrapeAll }) {
         <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
         Government Portals — <span style={{ color:"#f97316" }}>IGOD Directory</span>
       </h2>
-        <InfoTip text="Scraped from igod.gov.in/sg/RJ/SPMA/organizations — official IGOD directory for Rajasthan. Each card shows the portal name, domain, and meta description from that portal's own homepage."/>
+        <InfoTip text="Scraped from the official IGOD Rajasthan directory. Each card shows the portal name, domain, status, and lightweight homepage metadata collected directly from the portal URL."/>
       </div>
       <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
         Source: igod.gov.in/sg/RJ/SPMA/organizations{totalListed?` · ${totalListed}`:""}
@@ -1442,12 +1447,29 @@ function PortalsTab({ agg, onScrapeAll }) {
                   {CAT_ICON[catName]||"🏛️"}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:700, fontSize:13, color:"#1f2937", marginBottom:2 }}>{portal.name}</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2, flexWrap:"wrap" }}>
+                    <div style={{ fontWeight:700, fontSize:13, color:"#1f2937" }}>{portal.name}</div>
+                    <Chip
+                      label={portal.status || "Unknown"}
+                      color={portal.status === "Active" ? "#10b981" : portal.status === "Unreachable" ? "#ef4444" : "#f59e0b"}
+                      small
+                    />
+                  </div>
                   <div style={{ fontSize:11, color:"#9ca3af", marginBottom:6,
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{portal.domain}</div>
+                  {(portal.page_title || portal.portal_title) && (
+                    <div style={{ fontSize:11, color:"#374151", fontWeight:600, marginBottom:4 }}>
+                      {portal.page_title || portal.portal_title}
+                    </div>
+                  )}
                   {portal.description&&<div style={{ fontSize:12, color:"#6b7280", lineHeight:1.4, marginBottom:6 }}>
-                    {portal.description.slice(0,120)}{portal.description.length>120?"…":""}
+                    {portal.description.slice(0,140)}{portal.description.length>140?"…":""}
                   </div>}
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:8 }}>
+                    {portal.content_type && <Chip label={portal.content_type} color="#64748b" small/>}
+                    {portal.response_time_ms ? <Chip label={`${portal.response_time_ms} ms`} color="#0ea5e9" small/> : null}
+                    {portal.redirect_url && portal.redirect_url !== portal.url ? <Chip label="Redirected" color="#8b5cf6" small/> : null}
+                  </div>
                   <a href={portal.url} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#f97316", fontWeight:600 }}>Visit ↗</a>
                 </div>
               </div>
@@ -1460,230 +1482,433 @@ function PortalsTab({ agg, onScrapeAll }) {
 }
 
 // ── Districts Tab ─────────────────────────────────────────────────────────────
-function DistrictsTab({ agg, onScrapeAll }) {
+function DistrictsTab({ agg, onScrapeAll, schemeDashboards = [] }) {
+  const [selectedScheme, setSelectedScheme] = useState("jal_shakti");
   const [distSearch, setDistSearch] = useState("");
-  const [sortBy, setSortBy]         = useState("coverage_desc");
+  const [sortBy, setSortBy] = useState("coverage_desc");
 
   if (!agg) return <EmptyState onScrape={onScrapeAll}/>;
 
-  // ── Use LIVE data from /aggregate → jjm_districts (scraped from ejalshakti.gov.in)
-  // Falls back gracefully to empty array while data loads or if scraper returns nothing
-  const districts    = agg.jjm_districts || [];
-  const isLive       = districts.length > 0 && districts[0]?.live === true;
-  const scrapedAt    = districts[0]?.scraped_at || null;
-  const dataSource   = districts[0]?.source || "ejalshakti.gov.in";
+  const fallbackDashboards = useMemo(() => {
+    const jjmRows = (agg?.jjm_districts || []).map((row) => ({
+      district: row.name,
+      population: row.pop || "—",
+      coverage_pct: row.coverage || 0,
+      status: (row.coverage || 0) >= 70 ? "On track" : (row.coverage || 0) >= 50 ? "Needs push" : "Critical",
+      status_tone: (row.coverage || 0) >= 70 ? "good" : (row.coverage || 0) >= 50 ? "watch" : "critical",
+    }));
+    const pmksyRows = (agg?.pmksy_districts || []).map((row) => ({
+      district: row.name,
+      net_area_sown: row.net_area_sown_display,
+      net_irrigated_area: row.net_irrigated_area_display,
+      coverage_pct: row.coverage_pct || 0,
+      status: row.status,
+      status_tone: row.status_tone,
+    }));
+    return [
+      {
+        id: "jal_shakti",
+        label: "Jal Shakti",
+        icon: "💧",
+        source: "ejalshakti.gov.in",
+        source_url: "https://ejalshakti.gov.in/jjmreport/JJMIndia.aspx",
+        description: "JJM tap water coverage by district",
+        live: true,
+        status: "ok",
+        status_label: "Live data",
+        scraped_at: agg?.jjm_districts?.[0]?.scraped_at || agg?.scraped_at,
+        verified_label: "Official source",
+        note: "Functional tap water coverage from the Jal Jeevan Mission public dashboard.",
+        summary: {
+          primary: jjmRows.length ? `${(jjmRows.reduce((sum, row) => sum + row.coverage_pct, 0) / jjmRows.length).toFixed(1)}%` : "—",
+          primaryLabel: "State Average Coverage",
+          good: jjmRows.filter((row) => row.coverage_pct >= 70).length,
+          goodLabel: "Districts >70%",
+          watch: jjmRows.filter((row) => row.coverage_pct >= 50 && row.coverage_pct < 70).length,
+          watchLabel: "Districts 50–70%",
+          critical: jjmRows.filter((row) => row.coverage_pct < 50).length,
+          criticalLabel: "Districts <50%",
+        },
+        columns: [
+          { key: "district", label: "District", type: "text" },
+          { key: "population", label: "Population", type: "text" },
+          { key: "coverage_pct", label: "Tap Water Coverage", type: "progress" },
+          { key: "status", label: "Status", type: "status" },
+        ],
+        rows: jjmRows,
+        row_count: jjmRows.length,
+      },
+      {
+        id: "pmksy",
+        label: "PMKSY",
+        icon: "🌾",
+        source: "rajas.rajasthan.gov.in",
+        source_url: agg?.pmksy_districts?.[0]?.source_url || "https://rajas.rajasthan.gov.in/",
+        description: "District irrigation coverage from Rajasthan Agriculture Statistics",
+        live: true,
+        status: "ok",
+        status_label: "Live data",
+        scraped_at: agg?.pmksy_districts?.[0]?.scraped_at || agg?.scraped_at,
+        verified_label: "Verified Official Data",
+        report_label: agg?.pmksy_districts?.[0]?.report_label || "2022-23 Annual Report",
+        note: "Coverage is computed as net irrigated area divided by net area sown for each district.",
+        summary: {
+          primary: agg?.pmksy_districts?.length ? `${Number(agg.pmksy_districts[0]?.state_average || 0).toFixed(1)}%` : "—",
+          primaryLabel: "State Average Irrigation Coverage",
+          good: pmksyRows.filter((row) => row.coverage_pct >= 65).length,
+          goodLabel: "Districts >65%",
+          watch: pmksyRows.filter((row) => row.coverage_pct >= 40 && row.coverage_pct < 65).length,
+          watchLabel: "Districts 40–65%",
+          critical: pmksyRows.filter((row) => row.coverage_pct < 40).length,
+          criticalLabel: "Districts <40%",
+        },
+        columns: [
+          { key: "district", label: "District", type: "text" },
+          { key: "net_area_sown", label: "Net Area Sown (Lakh Ha)", type: "text" },
+          { key: "net_irrigated_area", label: "Net Irrigated Area (Lakh Ha)", type: "text" },
+          { key: "coverage_pct", label: "Irrigation Coverage", type: "progress" },
+          { key: "status", label: "Status", type: "status" },
+        ],
+        rows: pmksyRows,
+        row_count: pmksyRows.length,
+      },
+    ];
+  }, [agg]);
 
-  // Derive counts from schemes (live scraped data)
-  const schemes      = agg.schemes || [];
-  const healthCount  = schemes.filter(s => /health|medical/i.test(s.category||"")).length;
-  const waterCount   = schemes.filter(s => /water|jal|sanitation/i.test(s.category||"")).length;
-  const agriCount    = schemes.filter(s => /agri|kisan|farm/i.test(s.category||"")).length;
+  const dashboards = schemeDashboards.length ? schemeDashboards : fallbackDashboards;
 
-  // Summary tiles — all from live district data
-  const above60  = districts.filter(d => d.coverage > 60).length;
-  const mid      = districts.filter(d => d.coverage >= 45 && d.coverage <= 60).length;
-  const critical = districts.filter(d => d.coverage < 45).length;
-  const stateAvg = districts.length
-    ? (districts.reduce((s, d) => s + d.coverage, 0) / districts.length).toFixed(1)
-    : null;
+  useEffect(() => {
+    if (!dashboards.some((item) => item.id === selectedScheme)) {
+      setSelectedScheme(dashboards[0]?.id || "jal_shakti");
+    }
+  }, [dashboards, selectedScheme]);
 
-  // Filter + sort
-  const visible = [...districts]
-    .filter(d => !distSearch || d.name.toLowerCase().includes(distSearch.toLowerCase()))
-    .sort((a, b) =>
-      sortBy === "coverage_desc" ? b.coverage - a.coverage :
-      sortBy === "coverage_asc"  ? a.coverage - b.coverage :
-      a.name.localeCompare(b.name)
+  useEffect(() => {
+    setDistSearch("");
+    setSortBy("coverage_desc");
+  }, [selectedScheme]);
+
+  const selected = dashboards.find((item) => item.id === selectedScheme) || dashboards[0];
+  if (!selected) return <EmptyState onScrape={onScrapeAll}/>;
+
+  const rows = Array.isArray(selected.rows) ? selected.rows : [];
+  const searchedRows = rows.filter((row) => {
+    const name = String(row.district || row.name || "").toLowerCase();
+    return !distSearch || name.includes(distSearch.toLowerCase());
+  });
+  const visibleRows = [...searchedRows].sort((a, b) => {
+    if (sortBy === "coverage_asc") return (a.coverage_pct || 0) - (b.coverage_pct || 0);
+    if (sortBy === "name") return String(a.district || "").localeCompare(String(b.district || ""));
+    return (b.coverage_pct || 0) - (a.coverage_pct || 0);
+  });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone || (row.coverage_pct >= 70 ? "good" : row.coverage_pct >= 50 ? "watch" : "critical");
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857", text:"✓ On track" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04", text:"⚡ Needs push" }
+      : { bg:"#fee2e2", color:"#dc2626", text:"⚠ Critical" };
+    return (
+      <span style={{
+        display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"7px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:112
+      }}>
+        {row.status || styles.text}
+      </span>
     );
+  };
+
+  const cardColor = (schemeId) => {
+    if (schemeId === "jal_shakti") return "#0ea5e9";
+    if (schemeId === "pmksy") return "#16a34a";
+    if (schemeId === "sbmg") return "#f59e0b";
+    if (schemeId === "scholarship") return "#8b5cf6";
+    if (schemeId === "pmjdy") return "#0ea5e9";
+    if (schemeId === "pmgdisha") return "#6366f1";
+    if (schemeId === "saubhagya") return "#f59e0b";
+    if (schemeId === "mgnrega_raj") return "#16a34a";
+    if (schemeId === "pmfby") return "#84cc16";
+    if (schemeId === "pmayg") return "#f97316";
+    return "#f97316";
+  };
+
+  const accent = cardColor(selected.id);
+  const titleAccent = selected.id === "pmksy" ? "#6d28d9" : accent;
 
   return (
     <div className="fadeup">
-
-      {/* ── Header ── */}
-      <div style={{ display:"flex", alignItems:"flex-start",
-        justifyContent:"space-between", marginBottom:4, flexWrap:"wrap", gap:10 }}>
-        <div>
-          <div style={{ display:"flex", alignItems:"center", marginBottom:3 }}>
-            <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
-              District JJM Coverage —{" "}
-              <span style={{ color:"#f97316" }}>Live from ejalshakti.gov.in</span>
-            </h2>
-            <InfoTip text="Coverage % scraped live from JJM MIS (ejalshakti.gov.in) — Jal Jeevan Mission tracking system. Shows % of rural households with functional tap water connections. Scheme counts are derived from scraped schemes data."/>
-          </div>
-          <p style={{ color:"#6b7280", fontSize:13, margin:0 }}>
-            Tap water household coverage · Jal Jeevan Mission MIS
-          </p>
+      <div style={{ marginBottom:24 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4, flexWrap:"wrap" }}>
+          <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+            District Schemes — <span style={{ color:"#f97316" }}>Real Data</span>
+          </h2>
+          <InfoTip text="Each card points to an official public source. Where the source exposes scrapeable metrics, the dashboard renders live figures; where it does not, the UI shows the current source limitation instead of inventing data."/>
         </div>
-        {/* Live / fallback badge */}
-        <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
-          <div style={{
-            display:"flex", alignItems:"center", gap:6,
-            background: isLive ? "#f0fdf4" : "#fffbeb",
-            border: `1px solid ${isLive ? "#bbf7d0" : "#fde68a"}`,
-            borderRadius:8, padding:"6px 12px", fontSize:12, fontWeight:600,
-            color: isLive ? "#166534" : "#92400e",
-          }}>
-            <div style={{ width:8, height:8, borderRadius:"50%",
-              background: isLive ? "#10b981" : "#f59e0b",
-              boxShadow: isLive ? "0 0 0 3px #d1fae5" : "none" }}/>
-            {isLive ? "Live data" : "Verified fallback"}
-          </div>
-          {scrapedAt && (
-            <span style={{ fontSize:11, color:"#9ca3af" }}>
-              {timeAgo(scrapedAt)}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Source + scheme context */}
-      <p style={{ color:"#9ca3af", fontSize:12, marginBottom:22, marginTop:6 }}>
-        Source: {dataSource}
-        {stateAvg && ` · State avg: ${stateAvg}%`}
-        {" · "}Active scraped schemes: {healthCount} health · {waterCount} water · {agriCount} agri
-      </p>
-
-      {/* ── Summary tiles ── */}
-      {districts.length > 0 ? (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24 }}>
-          {[
-            { value:`${stateAvg}%`, label:"State Average Coverage",  bg:"#eff6ff", border:"#bfdbfe", numC:"#1d4ed8", txtC:"#1e40af" },
-            { value:above60,         label:"Districts >60% coverage",  bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
-            { value:mid,             label:"Districts 45–60%",          bg:"#fffbeb", border:"#fde68a", numC:"#d97706", txtC:"#92400e" },
-            { value:critical,        label:"Districts <45% (critical)", bg:"#fff5f5", border:"#fecaca", numC:"#dc2626", txtC:"#991b1b" },
-          ].map((s,i) => (
-            <div key={i} style={{ background:s.bg, border:`1.5px solid ${s.border}`,
-              borderRadius:14, padding:20 }}>
-              <div style={{ fontSize:i===0?28:40, fontWeight:900, color:s.numC, marginBottom:6, lineHeight:1 }}>
-                {s.value}
-              </div>
-              <div style={{ fontSize:13, fontWeight:600, color:s.txtC }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* Loading skeleton while JJM data is being fetched */
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24 }}>
-          {[1,2,3,4].map(i => (
-            <div key={i} style={{ background:"#f9fafb", border:"1px solid #e5e7eb",
-              borderRadius:14, padding:20, height:90 }}>
-              <div style={{ width:"50%", height:32, background:"#e5e7eb",
-                borderRadius:6, marginBottom:8 }}/>
-              <div style={{ width:"80%", height:14, background:"#e5e7eb", borderRadius:4 }}/>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Search + Sort ── */}
-      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-        <div style={{ position:"relative", flex:1, minWidth:200 }}>
-          <span style={{ position:"absolute", left:12, top:"50%",
-            transform:"translateY(-50%)", fontSize:14 }}>🔍</span>
-          <input value={distSearch} onChange={e => setDistSearch(e.target.value)}
-            placeholder="Search district…"
-            style={{ width:"100%", padding:"9px 12px 9px 36px",
-              border:"1px solid #e5e7eb", borderRadius:9, fontSize:13,
-              background:"white", boxSizing:"border-box" }}/>
-        </div>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-          style={{ padding:"9px 14px", border:"1px solid #e5e7eb",
-            borderRadius:9, fontSize:13, background:"white", cursor:"pointer" }}>
-          <option value="coverage_desc">Coverage: High → Low</option>
-          <option value="coverage_asc">Coverage: Low → High</option>
-          <option value="name">District: A – Z</option>
-        </select>
-        {districts.length > 0 && (
-          <span style={{ alignSelf:"center", fontSize:12, color:"#9ca3af" }}>
-            {visible.length} of {districts.length} districts
-          </span>
-        )}
-      </div>
-
-      {/* ── District table ── */}
-      {districts.length === 0 ? (
-        <div style={{ background:"white", borderRadius:14, border:"1px solid #e5e7eb",
-          padding:48, textAlign:"center" }}>
-          <div style={{ fontSize:40, marginBottom:12 }}>💧</div>
-          <div style={{ fontWeight:700, fontSize:16, color:"#374151", marginBottom:8 }}>
-            Fetching JJM district data…
-          </div>
-          <div style={{ color:"#9ca3af", fontSize:13, marginBottom:20 }}>
-            Data is scraped live from ejalshakti.gov.in on first load.
-          </div>
-          <button onClick={onScrapeAll} style={{ background:"#f97316", color:"white",
-            border:"none", borderRadius:8, padding:"10px 22px",
-            fontSize:13, fontWeight:700, cursor:"pointer" }}>
-            ⚡ Refresh All Data
-          </button>
-        </div>
-      ) : (
-        <div style={{ background:"white", borderRadius:14, border:"1px solid #e5e7eb",
-          overflow:"hidden" }}>
-          {/* Table header */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 1fr 110px",
-            padding:"10px 20px", background:"#f9fafb",
-            borderBottom:"1px solid #e5e7eb" }}>
-            {["DISTRICT","POPULATION","TAP WATER COVERAGE","STATUS"].map((h,i) => (
-              <div key={i} style={{ fontSize:10, fontWeight:700, color:"#9ca3af",
-                letterSpacing:"0.07em" }}>{h}</div>
-            ))}
-          </div>
-          {/* Rows */}
-          {visible.map((d, i) => {
-            const c = d.coverage >= 70 ? "#10b981"
-                    : d.coverage >= 50 ? "#f97316"
-                    : "#ef4444";
-            const coveragePct = typeof d.coverage === "number"
-              ? d.coverage
-              : parseFloat(d.coverage) || 0;
+        <p style={{ color:"#64748b", fontSize:13, marginBottom:16 }}>
+          Select a district or scheme-level dashboard to open its latest official view.
+        </p>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:14 }}>
+          {dashboards.map((option) => {
+            const active = option.id === selected.id;
+            const color = cardColor(option.id);
             return (
-              <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr 90px 1fr 110px",
-                padding:"13px 20px", borderBottom:"1px solid #f3f4f6",
-                alignItems:"center",
-                background: i % 2 === 0 ? "white" : "#fafafa" }}>
-                {/* Name */}
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ width:9, height:9, borderRadius:"50%",
-                    background:c, flexShrink:0 }}/>
-                  <span style={{ fontWeight:700, fontSize:14 }}>{d.name}</span>
-                </div>
-                {/* Population */}
-                <div style={{ fontSize:13, color:"#6b7280" }}>{d.pop || "—"}</div>
-                {/* Coverage bar */}
-                <div>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ flex:1, height:8, background:"#f3f4f6",
-                      borderRadius:4, overflow:"hidden" }}>
-                      <div style={{ width:`${Math.min(coveragePct, 100)}%`,
-                        height:"100%", background:c, borderRadius:4,
-                        transition:"width 0.4s ease" }}/>
+              <button
+                key={option.id}
+                onClick={() => setSelectedScheme(option.id)}
+                style={{
+                  textAlign:"left",
+                  background: active ? `${color}12` : "white",
+                  border:`1.5px solid ${active ? color : "#e2e8f0"}`,
+                  borderRadius:20,
+                  padding:"18px 20px",
+                  boxShadow: active ? `0 10px 30px ${color}16` : "0 6px 18px rgba(15,23,42,0.04)",
+                }}
+              >
+                <div style={{ display:"flex", justifyContent:"space-between", gap:12, alignItems:"flex-start", marginBottom:12 }}>
+                  <div style={{ display:"flex", gap:12 }}>
+                    <div style={{
+                      width:44, height:44, borderRadius:14, background:`${color}16`,
+                      display:"flex", alignItems:"center", justifyContent:"center", fontSize:22
+                    }}>
+                      {option.icon}
                     </div>
-                    <span style={{ fontWeight:800, fontSize:14, color:c,
-                      minWidth:42, textAlign:"right" }}>
-                      {coveragePct}%
-                    </span>
+                    <div>
+                      <div style={{ fontWeight:900, fontSize:15, color:"#0f172a" }}>{option.label}</div>
+                      <div style={{ fontSize:12, color:"#94a3b8" }}>{option.source}</div>
+                    </div>
+                  </div>
+                  <div style={{
+                    background: "#16a34a",
+                    color: "white",
+                    borderRadius:999, padding:"5px 12px", fontSize:11, fontWeight:800, whiteSpace:"nowrap"
+                  }}>
+                    {option.row_count || 0} districts
                   </div>
                 </div>
-                {/* Status */}
-                <div style={{ fontSize:12 }}>
-                  {coveragePct >= 70
-                    ? <span style={{ color:"#10b981", fontWeight:600 }}>✓ On track</span>
-                    : coveragePct >= 50
-                    ? <span style={{ color:"#f97316", fontWeight:600 }}>⚡ Needs push</span>
-                    : <span style={{ color:"#ef4444", fontWeight:700 }}>⚠️ Critical</span>}
-                </div>
-              </div>
+                <div style={{ fontSize:13, lineHeight:1.55, color:"#475569" }}>{option.description}</div>
+              </button>
             );
           })}
-          {/* Footer */}
-          <div style={{ padding:"10px 20px", background:"#f9fafb",
-            borderTop:"1px solid #e5e7eb", fontSize:11, color:"#9ca3af",
-            display:"flex", justifyContent:"space-between" }}>
-            <span>
-              {isLive ? "✓ Live data from" : "📚 Verified fallback —"} {dataSource}
-            </span>
-            {scrapedAt && <span>Fetched {timeAgo(scrapedAt)}</span>}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:16, flexWrap:"wrap", marginBottom:8 }}>
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap", marginBottom:4 }}>
+            <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+              {selected.row_count ? `District ${selected.label} Coverage` : selected.label} —{" "}
+              <span style={{ color:titleAccent }}>
+                {selected.id === "pmksy" ? "Rajasthan Agriculture Stats" : selected.live ? "Live dashboard" : "Official source status"}
+              </span>
+            </h2>
+            <InfoTip text={selected.note || "Official source data for the selected scheme."}/>
+          </div>
+          <p style={{ color:"#6b7280", fontSize:13, margin:0 }}>
+            {selected.description}
+            {selected.row_count ? ` · ${selected.row_count} districts` : ""}
+          </p>
+          {selected.verified_label && (
+            <div style={{
+              display:"inline-flex", alignItems:"center", gap:8, marginTop:12,
+              background:selected.id === "pmksy" ? "#fff7ed" : "#f8fafc",
+              border:`1px solid ${selected.id === "pmksy" ? "#fdba74" : "#e2e8f0"}`,
+              color:selected.id === "pmksy" ? "#c2410c" : "#334155",
+              borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800
+            }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background:selected.id === "pmksy" ? "#f59e0b" : accent, display:"inline-block" }}/>
+              {selected.verified_label}
+            </div>
+          )}
+          {selected.report_label && (
+            <div style={{ fontSize:12, color:"#94a3b8", marginTop:10 }}>
+              Source: {selected.report_label}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          <div style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:selected.live ? "#ecfdf5" : "#fffbeb",
+            border:`1px solid ${selected.live ? "#86efac" : "#fde68a"}`,
+            borderRadius:10, padding:"8px 12px", color:selected.live ? "#15803d" : "#92400e",
+            fontWeight:700, fontSize:12
+          }}>
+            <span style={{
+              width:9, height:9, borderRadius:"50%", background:selected.live ? "#22c55e" : "#f59e0b",
+              boxShadow:selected.live ? "0 0 0 3px #dcfce7" : "none"
+            }}/>
+            {selected.status_label || (selected.live ? "Live data" : "Source limited")}
+          </div>
+          {selected.scraped_at && <span style={{ fontSize:12, color:"#94a3b8" }}>{timeAgo(selected.scraped_at)}</span>}
+        </div>
+      </div>
+
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:22 }}>
+        Source: {selected.source}
+        {selected.note ? ` · ${selected.note}` : ""}
+      </p>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:selected.summary?.primary || "—", label:selected.summary?.primaryLabel || "Primary metric", bg:"#eff6ff", border:"#bfdbfe", numC:"#4338ca", txtC:"#3730a3" },
+          { value:selected.summary?.good ?? 0, label:selected.summary?.goodLabel || "Healthy", bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:selected.summary?.watch ?? 0, label:selected.summary?.watchLabel || "Watch", bg:"#fffbeb", border:"#fde68a", numC:"#ea580c", txtC:"#9a3412" },
+          { value:selected.summary?.critical ?? 0, label:selected.summary?.criticalLabel || "Critical", bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, index) => (
+          <div key={index} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:index===0 ? 32 : 46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>
+              {item.value}
+            </div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {selected.row_count > 0 ? (
+        <>
+          <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+            <div style={{ position:"relative", flex:1, minWidth:220 }}>
+              <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+              <input
+                value={distSearch}
+                onChange={(e) => setDistSearch(e.target.value)}
+                placeholder="Search district…"
+                style={{
+                  width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+                  borderRadius:11, fontSize:13, background:"white"
+                }}
+              />
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}
+            >
+              <option value="coverage_desc">Coverage: High → Low</option>
+              <option value="coverage_asc">Coverage: Low → High</option>
+              <option value="name">District: A – Z</option>
+            </select>
+            <span style={{ fontSize:12, color:"#94a3b8" }}>{visibleRows.length} of {rows.length} districts</span>
+          </div>
+
+          <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:`repeat(${selected.columns.length}, minmax(0, 1fr))`,
+              padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:12
+            }}>
+              {selected.columns.map((column) => (
+                <div key={column.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+                  {column.label}
+                </div>
+              ))}
+            </div>
+
+            {visibleRows.map((row, index) => (
+              <div
+                key={`${row.district}-${index}`}
+                style={{
+                  display:"grid",
+                  gridTemplateColumns:`repeat(${selected.columns.length}, minmax(0, 1fr))`,
+                  padding:"15px 20px", gap:12, alignItems:"center",
+                  borderBottom:"1px solid #f1f5f9", background:index % 2 === 0 ? "white" : "#fcfcfd"
+                }}
+              >
+                {selected.columns.map((column, colIndex) => {
+                  if (column.type === "progress") {
+                    const pct = Math.max(0, Math.min(Number(row[column.key] || 0), 100));
+                    const tone = row.status_tone || (pct >= 70 ? "good" : pct >= 50 ? "watch" : "critical");
+                    const barColor = tone === "good" ? "#16a34a" : tone === "watch" ? "#f97316" : "#ef4444";
+                    return (
+                      <div key={column.key}>
+                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                          <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                            <div style={{ width:`${pct}%`, height:"100%", background:barColor, borderRadius:999, transition:"width 0.35s ease" }}/>
+                          </div>
+                          <span style={{ minWidth:56, textAlign:"right", fontWeight:800, color:barColor, fontSize:13 }}>{pct}%</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (column.type === "status") {
+                    return <div key={column.key}>{renderStatusPill(row)}</div>;
+                  }
+                  if (colIndex === 0) {
+                    return (
+                      <div key={column.key} style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <span style={{
+                          width:10, height:10, borderRadius:"50%",
+                          background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                          flexShrink:0
+                        }}/>
+                        <span style={{ fontWeight:800, fontSize:14, color:"#0f172a" }}>{row[column.key]}</span>
+                      </div>
+                    );
+                  }
+                  return <div key={column.key} style={{ fontSize:13, color:"#475569" }}>{row[column.key] || "—"}</div>;
+                })}
+              </div>
+            ))}
+
+            <div style={{
+              display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+              background:"#f8fafc", color:"#94a3b8", fontSize:11
+            }}>
+              <span>{selected.live ? "Live feed" : "Official source"} · {selected.source}</span>
+              {selected.scraped_at && <span>Fetched {timeAgo(selected.scraped_at)}</span>}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div style={{
+          background:"white", borderRadius:18, border:"1px solid #e5e7eb", padding:"32px 28px",
+          boxShadow:"0 6px 18px rgba(15,23,42,0.04)"
+        }}>
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16, flexWrap:"wrap" }}>
+            <div>
+              <div style={{ fontSize:18, fontWeight:900, color:"#0f172a", marginBottom:8 }}>
+                {selected.live ? "Latest official summary loaded" : "Official source limitation surfaced clearly"}
+              </div>
+              <p style={{ fontSize:14, color:"#475569", lineHeight:1.7, maxWidth:760, marginBottom:14 }}>
+                {selected.note || "This scheme does not currently expose district rows in a stable public response, so the dashboard is showing the source status instead of manufacturing statistics."}
+              </p>
+              {selected.state_metrics && (
+                <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:12 }}>
+                  {Object.entries(selected.state_metrics).slice(0, 6).map(([key, value]) => (
+                    <span key={key} style={{
+                      background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:999,
+                      padding:"6px 12px", fontSize:12, color:"#475569"
+                    }}>
+                      <strong style={{ color:"#0f172a" }}>{key.replace(/_/g, " ")}:</strong> {value}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <a
+                href={selected.source_url}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display:"inline-flex", alignItems:"center", gap:8,
+                  background:accent, color:"white", borderRadius:999, padding:"10px 16px",
+                  fontWeight:800, fontSize:13
+                }}
+              >
+                Open official source
+              </a>
+            </div>
+            <button
+              onClick={onScrapeAll}
+              style={{
+                background:"#fff7ed", border:"1px solid #fdba74", color:"#c2410c",
+                borderRadius:12, padding:"10px 14px", fontWeight:800, fontSize:13
+              }}
+            >
+              Refresh all data
+            </button>
           </div>
         </div>
       )}
@@ -1874,6 +2099,1609 @@ function BudgetDataTab({ budget, budgetLoading, onRefresh }) {
   );
 }
 
+// ── PMFBY Tab ──────────────────────────────────────────────────────────────
+function PmfbyTab({ schemeDashboards, agg, onScrapeAll }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("settle_desc");
+
+  const dashboard = schemeDashboards.find(d => d.id === "pmfby") || null;
+
+  if (!dashboard && !agg) return <EmptyState onScrape={onScrapeAll}/>;
+  if (!dashboard) return (
+    <div style={{ background:"white", borderRadius:16, border:"2px dashed #e5e7eb", padding:60, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>🌾</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#0f172a", marginBottom:8 }}>PMFBY data loading…</div>
+      <div style={{ color:"#64748b", fontSize:13, marginBottom:20 }}>Click Refresh to fetch crop insurance data from pmfby.gov.in</div>
+      <button onClick={onScrapeAll} style={{ background:"#84cc16", color:"white", borderRadius:12, padding:"12px 28px", fontWeight:800, fontSize:14, border:"none", cursor:"pointer" }}>⚡ Fetch PMFBY Data</button>
+    </div>
+  );
+
+  const { summary, rows = [], columns = [] } = dashboard;
+  const totals = summary?.state_totals || {};
+
+  const filtered = [...rows]
+    .filter(r => !search || String(r.district || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "settle_asc") return (a.settlement_pct || 0) - (b.settlement_pct || 0);
+      if (sortBy === "name")       return String(a.district || "").localeCompare(String(b.district || ""));
+      return (b.settlement_pct || 0) - (a.settlement_pct || 0);
+    });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone;
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04" }
+      : { bg:"#fee2e2", color:"#dc2626" };
+    return (
+      <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"6px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:108 }}>
+        {row.status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fadeup">
+      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+        <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+          PMFBY (Rajasthan) — <span style={{ color:"#65a30d" }}>Crop Insurance</span>
+        </h2>
+        <InfoTip text="Pradhan Mantri Fasal Bima Yojana — district-wise crop insurance data from pmfby.gov.in public dashboard and PIB Annexure-1. Claim settlement rate = claims settled / claims filed × 100."/>
+      </div>
+      <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
+        Source: {dashboard.source} · {dashboard.report_label}
+      </p>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginBottom:20,
+        background:"#f7fee7", border:"1px solid #d9f99d", color:"#3f6212",
+        borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800 }}>
+        <span style={{ width:8, height:8, borderRadius:"50%", background:dashboard.live ? "#84cc16" : "#bef264", display:"inline-block" }}/>
+        {dashboard.verified_label}
+      </div>
+
+      {/* KPI summary cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:summary?.primary || "—",   label:summary?.primaryLabel || "Avg Settlement Rate", bg:"#f7fee7", border:"#d9f99d", numC:"#4d7c0f", txtC:"#3f6212" },
+          { value:summary?.good ?? 0,         label:summary?.goodLabel || "Districts ≥85%",         bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:summary?.watch ?? 0,        label:summary?.watchLabel || "Districts 78–85%",      bg:"#fffbeb", border:"#fde68a", numC:"#ea580c", txtC:"#9a3412" },
+          { value:summary?.critical ?? 0,     label:summary?.criticalLabel || "Critical",            bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, i) => (
+          <div key={i} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:i===0?32:46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>{item.value}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* State totals banner */}
+      {totals.farmers_enrolled && (
+        <div style={{ background:"linear-gradient(135deg,#f7fee7,#ecfccb)", border:"1.5px solid #d9f99d",
+          borderRadius:14, padding:"14px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:20, alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:18 }}>🌾</span>
+            <span style={{ fontWeight:800, fontSize:14, color:"#1a2e05" }}>Rajasthan State Totals ({totals.year})</span>
+          </div>
+          {[
+            { label:"Farmers Enrolled",  val:totals.farmers_enrolled,  color:"#4d7c0f" },
+            { label:"Area Insured",      val:totals.area_insured,      color:"#0369a1" },
+            { label:"Premium Collected", val:totals.premium_collected, color:"#b45309" },
+            { label:"Claims Paid",       val:totals.claims_paid,       color:"#dc2626" },
+            { label:"Claim Ratio",       val:totals.claim_ratio,       color:"#7c3aed" },
+            { label:"Settlement Rate",   val:totals.settlement_rate,   color:"#16a34a" },
+          ].map((item, i) => (
+            <div key={i} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:15, fontWeight:900, color:item.color }}>{item.val}</div>
+              <div style={{ fontSize:10, color:"#3f6212", fontWeight:600 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:18 }}>
+        Source: {dashboard.source} · {dashboard.note}
+      </p>
+
+      {/* Search + sort */}
+      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ position:"relative", flex:1, minWidth:220 }}>
+          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search district…"
+            style={{ width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+              borderRadius:11, fontSize:13, background:"white", boxSizing:"border-box" }}/>
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}>
+          <option value="settle_desc">Settlement: High → Low</option>
+          <option value="settle_asc">Settlement: Low → High</option>
+          <option value="name">District: A – Z</option>
+        </select>
+        <span style={{ fontSize:12, color:"#94a3b8" }}>{filtered.length} of {rows.length} districts</span>
+      </div>
+
+      {/* District table */}
+      <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+          padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:12 }}>
+          {columns.map(col => (
+            <div key={col.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+
+        {filtered.map((row, idx) => (
+          <div key={`${row.district}-${idx}`}
+            style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+              padding:"15px 20px", gap:12, alignItems:"center",
+              borderBottom:"1px solid #f1f5f9", background:idx % 2 === 0 ? "white" : "#fcfcfd" }}>
+
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}/>
+              <span style={{ fontWeight:800, fontSize:14, color:"#0f172a" }}>{row.district}</span>
+            </div>
+            <div style={{ fontSize:13, color:"#4d7c0f", fontWeight:600 }}>{row.farmers}</div>
+            <div style={{ fontSize:13, color:"#0369a1", fontWeight:600 }}>{row.area_insured}</div>
+            <div style={{ fontSize:13, color:"#dc2626", fontWeight:600 }}>{row.claims_paid}</div>
+
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${Math.min(row.settlement_pct || 0, 100)}%`, height:"100%", borderRadius:999,
+                    background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                    transition:"width 0.35s ease"
+                  }}/>
+                </div>
+                <span style={{ minWidth:40, textAlign:"right", fontWeight:800, fontSize:13,
+                  color: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}>
+                  {row.settlement_pct}%
+                </span>
+              </div>
+            </div>
+            <div>{renderStatusPill(row)}</div>
+          </div>
+        ))}
+
+        <div style={{ display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+          background:"#f8fafc", color:"#94a3b8", fontSize:11 }}>
+          <span>{dashboard.live ? "Live feed" : "Annual report data"} · {dashboard.source}</span>
+          <span>Fetched {timeAgo(dashboard.scraped_at)}</span>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:12, marginTop:18, flexWrap:"wrap" }}>
+        {[
+          { label:"PMFBY Dashboard",     url:"https://pmfby.gov.in/adminStatistics",  color:"#65a30d" },
+          { label:"PMFBY Official Portal",url:"https://pmfby.gov.in/",               color:"#4d7c0f" },
+          { label:"PIB Annexure-1",      url:"https://pib.gov.in/",                  color:"#0369a1" },
+        ].map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noreferrer" style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:`${link.color}12`, color:link.color,
+            border:`1px solid ${link.color}30`, borderRadius:999,
+            padding:"8px 16px", fontWeight:700, fontSize:12, textDecoration:"none"
+          }}>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── MGNREGA Tab ──────────────────────────────────────────────────────────────
+function MgnregaTab({ schemeDashboards, agg, onScrapeAll }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("emp_desc");
+
+  const dashboard = schemeDashboards.find(d => d.id === "mgnrega_raj") || null;
+
+  if (!dashboard && !agg) return <EmptyState onScrape={onScrapeAll}/>;
+  if (!dashboard) return (
+    <div style={{ background:"white", borderRadius:16, border:"2px dashed #e5e7eb", padding:60, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>🏗️</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#0f172a", marginBottom:8 }}>MGNREGA data loading…</div>
+      <div style={{ color:"#64748b", fontSize:13, marginBottom:20 }}>Click Refresh to fetch employment data from nreganarep.nic.in</div>
+      <button onClick={onScrapeAll} style={{ background:"#16a34a", color:"white", borderRadius:12, padding:"12px 28px", fontWeight:800, fontSize:14, border:"none", cursor:"pointer" }}>⚡ Fetch MGNREGA Data</button>
+    </div>
+  );
+
+  const { summary, rows = [], columns = [] } = dashboard;
+  const totals = summary?.state_totals || {};
+
+  const filtered = [...rows]
+    .filter(r => !search || String(r.district || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "emp_asc") return (a.emp_pct || 0) - (b.emp_pct || 0);
+      if (sortBy === "name")    return String(a.district || "").localeCompare(String(b.district || ""));
+      return (b.emp_pct || 0) - (a.emp_pct || 0);
+    });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone;
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04" }
+      : { bg:"#fee2e2", color:"#dc2626" };
+    return (
+      <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"6px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:108 }}>
+        {row.status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fadeup">
+      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+        <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+          MGNREGA (Rajasthan) — <span style={{ color:"#16a34a" }}>Rural Employment</span>
+        </h2>
+        <InfoTip text="MGNREGA district data from nreganarep.nic.in MIS — Rajasthan state report. Employment rate = households provided work / households demanded work × 100."/>
+      </div>
+      <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
+        Source: {dashboard.source} · {dashboard.report_label}
+      </p>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginBottom:20,
+        background:"#f0fdf4", border:"1px solid #bbf7d0", color:"#166534",
+        borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800 }}>
+        <span style={{ width:8, height:8, borderRadius:"50%", background:dashboard.live ? "#16a34a" : "#86efac", display:"inline-block" }}/>
+        {dashboard.verified_label}
+      </div>
+
+      {/* KPI summary cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:summary?.primary || "—",   label:summary?.primaryLabel || "Avg Employment Rate", bg:"#f0fdf4", border:"#bbf7d0", numC:"#15803d", txtC:"#166534" },
+          { value:summary?.good ?? 0,         label:summary?.goodLabel || "Districts ≥88%",         bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:summary?.watch ?? 0,        label:summary?.watchLabel || "Districts 78–88%",      bg:"#fffbeb", border:"#fde68a", numC:"#ea580c", txtC:"#9a3412" },
+          { value:summary?.critical ?? 0,     label:summary?.criticalLabel || "Critical",            bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, i) => (
+          <div key={i} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:i===0?32:46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>{item.value}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* State totals banner */}
+      {totals.job_cards && (
+        <div style={{ background:"linear-gradient(135deg,#f0fdf4,#dcfce7)", border:"1.5px solid #bbf7d0",
+          borderRadius:14, padding:"14px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:20, alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:18 }}>🏗️</span>
+            <span style={{ fontWeight:800, fontSize:14, color:"#14532d" }}>Rajasthan State Totals ({totals.year})</span>
+          </div>
+          {[
+            { label:"Job Cards",      val:totals.job_cards,    color:"#15803d" },
+            { label:"HH Demanded",   val:totals.hh_demanded,  color:"#0369a1" },
+            { label:"HH Provided",   val:totals.hh_provided,  color:"#16a34a" },
+            { label:"Person Days",   val:totals.person_days,  color:"#7c3aed" },
+            { label:"Avg Days/HH",   val:totals.avg_days,     color:"#b45309" },
+            { label:"Expenditure",   val:totals.expenditure,  color:"#dc2626" },
+          ].map((item, i) => (
+            <div key={i} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:15, fontWeight:900, color:item.color }}>{item.val}</div>
+              <div style={{ fontSize:10, color:"#166534", fontWeight:600 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:18 }}>
+        Source: {dashboard.source} · {dashboard.note}
+      </p>
+
+      {/* Search + sort */}
+      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ position:"relative", flex:1, minWidth:220 }}>
+          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search district…"
+            style={{ width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+              borderRadius:11, fontSize:13, background:"white", boxSizing:"border-box" }}/>
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}>
+          <option value="emp_desc">Employment: High → Low</option>
+          <option value="emp_asc">Employment: Low → High</option>
+          <option value="name">District: A – Z</option>
+        </select>
+        <span style={{ fontSize:12, color:"#94a3b8" }}>{filtered.length} of {rows.length} districts</span>
+      </div>
+
+      {/* District table — 7 columns */}
+      <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,minmax(0,1fr))",
+          padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:10 }}>
+          {columns.map(col => (
+            <div key={col.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+
+        {filtered.map((row, idx) => (
+          <div key={`${row.district}-${idx}`}
+            style={{ display:"grid", gridTemplateColumns:"repeat(7,minmax(0,1fr))",
+              padding:"14px 20px", gap:10, alignItems:"center",
+              borderBottom:"1px solid #f1f5f9", background:idx % 2 === 0 ? "white" : "#fcfcfd" }}>
+
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}/>
+              <span style={{ fontWeight:800, fontSize:13, color:"#0f172a" }}>{row.district}</span>
+            </div>
+            <div style={{ fontSize:12, color:"#15803d", fontWeight:600 }}>{row.job_cards}</div>
+            <div style={{ fontSize:12, color:"#0369a1", fontWeight:600 }}>{row.demanded}</div>
+            <div style={{ fontSize:12, color:"#16a34a", fontWeight:600 }}>{row.provided}</div>
+            <div style={{ fontSize:12, color:"#7c3aed", fontWeight:600 }}>{row.person_days}</div>
+
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${Math.min(row.emp_pct || 0, 100)}%`, height:"100%", borderRadius:999,
+                    background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                    transition:"width 0.35s ease"
+                  }}/>
+                </div>
+                <span style={{ minWidth:38, textAlign:"right", fontWeight:800, fontSize:12,
+                  color: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}>
+                  {row.emp_pct}%
+                </span>
+              </div>
+            </div>
+            <div>{renderStatusPill(row)}</div>
+          </div>
+        ))}
+
+        <div style={{ display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+          background:"#f8fafc", color:"#94a3b8", fontSize:11 }}>
+          <span>{dashboard.live ? "Live feed" : "MIS report data"} · {dashboard.source}</span>
+          <span>Fetched {timeAgo(dashboard.scraped_at)}</span>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:12, marginTop:18, flexWrap:"wrap" }}>
+        {[
+          { label:"NREGA MIS Rajasthan",    url:"https://nreganarep.nic.in/netnrega/nrega_ataglance/At_a_glance.aspx?state_code=17&state_name=RAJASTHAN", color:"#16a34a" },
+          { label:"Jan Soochna MGNREGA",    url:"https://jansoochna.rajasthan.gov.in/MGNREGA",                                                           color:"#0369a1" },
+          { label:"NREGA At a Glance",      url:"https://nreganarep.nic.in/netnrega/nrega_ataglance/At_a_glance.aspx",                                    color:"#15803d" },
+        ].map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noreferrer" style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:`${link.color}12`, color:link.color,
+            border:`1px solid ${link.color}30`, borderRadius:999,
+            padding:"8px 16px", fontWeight:700, fontSize:12, textDecoration:"none"
+          }}>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Saubhagya Tab ─────────────────────────────────────────────────────────────
+function SaubhagyaTab({ schemeDashboards, agg, onScrapeAll }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("elec_desc");
+
+  const dashboard = schemeDashboards.find(d => d.id === "saubhagya") || null;
+
+  if (!dashboard && !agg) return <EmptyState onScrape={onScrapeAll}/>;
+  if (!dashboard) return (
+    <div style={{ background:"white", borderRadius:16, border:"2px dashed #e5e7eb", padding:60, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>⚡</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#0f172a", marginBottom:8 }}>Saubhagya data loading…</div>
+      <div style={{ color:"#64748b", fontSize:13, marginBottom:20 }}>Click Refresh to fetch electrification data from saubhagya.gov.in</div>
+      <button onClick={onScrapeAll} style={{ background:"#f59e0b", color:"white", borderRadius:12, padding:"12px 28px", fontWeight:800, fontSize:14, border:"none", cursor:"pointer" }}>⚡ Fetch Saubhagya Data</button>
+    </div>
+  );
+
+  const { summary, rows = [], columns = [] } = dashboard;
+  const totals = summary?.state_totals || {};
+
+  const filtered = [...rows]
+    .filter(r => !search || String(r.district || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "elec_asc") return (a.elec_pct || 0) - (b.elec_pct || 0);
+      if (sortBy === "name")     return String(a.district || "").localeCompare(String(b.district || ""));
+      return (b.elec_pct || 0) - (a.elec_pct || 0);
+    });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone;
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04" }
+      : { bg:"#fee2e2", color:"#dc2626" };
+    return (
+      <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"6px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:108 }}>
+        {row.status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fadeup">
+      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+        <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+          PM Saubhagya — <span style={{ color:"#f59e0b" }}>Household Electrification</span>
+        </h2>
+        <InfoTip text="PM Saubhagya (Pradhan Mantri Sahaj Bijli Har Ghar Yojana) — household electrification rate per district from saubhagya.gov.in MIS dashboard."/>
+      </div>
+      <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
+        Source: {dashboard.source} · {dashboard.report_label}
+      </p>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginBottom:20,
+        background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e",
+        borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800 }}>
+        <span style={{ width:8, height:8, borderRadius:"50%", background:dashboard.live ? "#f59e0b" : "#fcd34d", display:"inline-block" }}/>
+        {dashboard.verified_label}
+      </div>
+
+      {/* KPI summary cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:summary?.primary || "—",   label:summary?.primaryLabel || "Avg Electrification",  bg:"#fffbeb", border:"#fde68a", numC:"#b45309", txtC:"#92400e" },
+          { value:summary?.good ?? 0,         label:summary?.goodLabel || "Districts ≥95%",          bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:summary?.watch ?? 0,        label:summary?.watchLabel || "Districts 90–95%",       bg:"#fff7ed", border:"#fed7aa", numC:"#ea580c", txtC:"#9a3412" },
+          { value:summary?.critical ?? 0,     label:summary?.criticalLabel || "Critical",             bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, i) => (
+          <div key={i} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:i===0?32:46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>{item.value}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* State totals banner */}
+      {totals.total_hh && (
+        <div style={{ background:"linear-gradient(135deg,#fffbeb,#fef3c7)", border:"1.5px solid #fde68a",
+          borderRadius:14, padding:"14px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:24, alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:18 }}>⚡</span>
+            <span style={{ fontWeight:800, fontSize:14, color:"#78350f" }}>Rajasthan State Totals ({totals.year})</span>
+          </div>
+          {[
+            { label:"Total Households",   val:totals.total_hh,        color:"#b45309" },
+            { label:"Electrified",        val:totals.electrified,     color:"#16a34a" },
+            { label:"Remaining",          val:totals.unelectrified,   color:"#dc2626" },
+            { label:"Electrification Rate",val:totals.elec_rate,      color:"#f59e0b" },
+            { label:"Free Connections",   val:totals.free_connections, color:"#0369a1" },
+          ].map((item, i) => (
+            <div key={i} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:16, fontWeight:900, color:item.color }}>{item.val}</div>
+              <div style={{ fontSize:10, color:"#92400e", fontWeight:600 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:18 }}>
+        Source: {dashboard.source} · {dashboard.note}
+      </p>
+
+      {/* Search + sort */}
+      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ position:"relative", flex:1, minWidth:220 }}>
+          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search district…"
+            style={{ width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+              borderRadius:11, fontSize:13, background:"white", boxSizing:"border-box" }}/>
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}>
+          <option value="elec_desc">Electrification: High → Low</option>
+          <option value="elec_asc">Electrification: Low → High</option>
+          <option value="name">District: A – Z</option>
+        </select>
+        <span style={{ fontSize:12, color:"#94a3b8" }}>{filtered.length} of {rows.length} districts</span>
+      </div>
+
+      {/* District table */}
+      <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+          padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:12 }}>
+          {columns.map(col => (
+            <div key={col.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+
+        {filtered.map((row, idx) => (
+          <div key={`${row.district}-${idx}`}
+            style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+              padding:"15px 20px", gap:12, alignItems:"center",
+              borderBottom:"1px solid #f1f5f9", background:idx % 2 === 0 ? "white" : "#fcfcfd" }}>
+
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}/>
+              <span style={{ fontWeight:800, fontSize:14, color:"#0f172a" }}>{row.district}</span>
+            </div>
+            <div style={{ fontSize:13, color:"#b45309", fontWeight:600 }}>{row.total_hh}</div>
+            <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>{row.electrified}</div>
+            <div style={{ fontSize:13, color:"#dc2626", fontWeight:600 }}>{row.remaining}</div>
+
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${Math.min(row.elec_pct || 0, 100)}%`, height:"100%", borderRadius:999,
+                    background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                    transition:"width 0.35s ease"
+                  }}/>
+                </div>
+                <span style={{ minWidth:40, textAlign:"right", fontWeight:800, fontSize:13,
+                  color: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}>
+                  {row.elec_pct}%
+                </span>
+              </div>
+            </div>
+            <div>{renderStatusPill(row)}</div>
+          </div>
+        ))}
+
+        <div style={{ display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+          background:"#f8fafc", color:"#94a3b8", fontSize:11 }}>
+          <span>{dashboard.live ? "Live feed" : "MIS dashboard data"} · {dashboard.source}</span>
+          <span>Fetched {timeAgo(dashboard.scraped_at)}</span>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:12, marginTop:18, flexWrap:"wrap" }}>
+        {[
+          { label:"Saubhagya Dashboard",    url:"https://saubhagya.gov.in/dashboard", color:"#f59e0b" },
+          { label:"Saubhagya Official Portal",url:"https://saubhagya.gov.in/",        color:"#b45309" },
+          { label:"MoP Electrification MIS", url:"https://garv.gov.in/",              color:"#0369a1" },
+        ].map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noreferrer" style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:`${link.color}12`, color:link.color,
+            border:`1px solid ${link.color}30`, borderRadius:999,
+            padding:"8px 16px", fontWeight:700, fontSize:12, textDecoration:"none"
+          }}>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── PMGDISHA Tab ──────────────────────────────────────────────────────────────
+function PmgdishaTab({ schemeDashboards, agg, onScrapeAll }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("cert_desc");
+
+  const dashboard = schemeDashboards.find(d => d.id === "pmgdisha") || null;
+
+  if (!dashboard && !agg) return <EmptyState onScrape={onScrapeAll}/>;
+
+  if (!dashboard) return (
+    <div style={{ background:"white", borderRadius:16, border:"2px dashed #e5e7eb", padding:60, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>💻</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#0f172a", marginBottom:8 }}>PMGDISHA data loading…</div>
+      <div style={{ color:"#64748b", fontSize:13, marginBottom:20 }}>Click Refresh to fetch digital literacy data from pmgdisha.in MIS</div>
+      <button onClick={onScrapeAll} style={{ background:"#6366f1", color:"white", borderRadius:12, padding:"12px 28px", fontWeight:800, fontSize:14, border:"none", cursor:"pointer" }}>⚡ Fetch PMGDISHA Data</button>
+    </div>
+  );
+
+  const { summary, rows = [], columns = [] } = dashboard;
+  const totals = summary?.state_totals || {};
+
+  const filtered = [...rows]
+    .filter(r => !search || String(r.district || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "cert_asc") return (a.cert_pct || 0) - (b.cert_pct || 0);
+      if (sortBy === "name")     return String(a.district || "").localeCompare(String(b.district || ""));
+      return (b.cert_pct || 0) - (a.cert_pct || 0);
+    });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone;
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04" }
+      : { bg:"#fee2e2", color:"#dc2626" };
+    return (
+      <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"6px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:108 }}>
+        {row.status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fadeup">
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+        <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+          PMGDISHA — <span style={{ color:"#6366f1" }}>Digital Literacy</span>
+        </h2>
+        <InfoTip text="Pradhan Mantri Gramin Digital Saksharta Abhiyan — certification rate data from pmgdisha.in MIS dashboard. Covers rural candidates registered, trained, and certified per district."/>
+      </div>
+      <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
+        Source: {dashboard.source} · {dashboard.report_label}
+      </p>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginBottom:20,
+        background:"#eef2ff", border:"1px solid #c7d2fe", color:"#4338ca",
+        borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800 }}>
+        <span style={{ width:8, height:8, borderRadius:"50%", background:dashboard.live ? "#6366f1" : "#a5b4fc", display:"inline-block" }}/>
+        {dashboard.verified_label}
+      </div>
+
+      {/* KPI summary cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:summary?.primary || "—",   label:summary?.primaryLabel || "Avg Certification",  bg:"#eef2ff", border:"#c7d2fe", numC:"#4338ca", txtC:"#3730a3" },
+          { value:summary?.good ?? 0,         label:summary?.goodLabel || "Districts ≥72%",        bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:summary?.watch ?? 0,        label:summary?.watchLabel || "Districts 62–72%",     bg:"#fffbeb", border:"#fde68a", numC:"#ea580c", txtC:"#9a3412" },
+          { value:summary?.critical ?? 0,     label:summary?.criticalLabel || "Critical",           bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, i) => (
+          <div key={i} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:i===0?32:46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>{item.value}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* State totals banner */}
+      {totals.registered && (
+        <div style={{ background:"linear-gradient(135deg,#eef2ff,#e0e7ff)", border:"1.5px solid #c7d2fe",
+          borderRadius:14, padding:"14px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:24, alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:18 }}>💻</span>
+            <span style={{ fontWeight:800, fontSize:14, color:"#312e81" }}>Rajasthan State Totals ({totals.year})</span>
+          </div>
+          {[
+            { label:"Registered",       val:totals.registered,  color:"#4338ca" },
+            { label:"Trained",          val:totals.trained,     color:"#0369a1" },
+            { label:"Certified",        val:totals.certified,   color:"#16a34a" },
+            { label:"Certification Rate",val:totals.cert_rate,  color:"#6366f1" },
+          ].map((item, i) => (
+            <div key={i} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:18, fontWeight:900, color:item.color }}>{item.val}</div>
+              <div style={{ fontSize:10, color:"#4338ca", fontWeight:600 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:18 }}>
+        Source: {dashboard.source} · {dashboard.note}
+      </p>
+
+      {/* Search + sort */}
+      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ position:"relative", flex:1, minWidth:220 }}>
+          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search district…"
+            style={{ width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+              borderRadius:11, fontSize:13, background:"white", boxSizing:"border-box" }}/>
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}>
+          <option value="cert_desc">Certification: High → Low</option>
+          <option value="cert_asc">Certification: Low → High</option>
+          <option value="name">District: A – Z</option>
+        </select>
+        <span style={{ fontSize:12, color:"#94a3b8" }}>{filtered.length} of {rows.length} districts</span>
+      </div>
+
+      {/* District table */}
+      <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+        {/* Column headers */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+          padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:12 }}>
+          {columns.map(col => (
+            <div key={col.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Data rows */}
+        {filtered.map((row, idx) => (
+          <div key={`${row.district}-${idx}`}
+            style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+              padding:"15px 20px", gap:12, alignItems:"center",
+              borderBottom:"1px solid #f1f5f9", background:idx % 2 === 0 ? "white" : "#fcfcfd" }}>
+
+            {/* District */}
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}/>
+              <span style={{ fontWeight:800, fontSize:14, color:"#0f172a" }}>{row.district}</span>
+            </div>
+
+            {/* Registered */}
+            <div style={{ fontSize:13, color:"#4338ca", fontWeight:600 }}>{row.registered}</div>
+
+            {/* Trained */}
+            <div style={{ fontSize:13, color:"#0369a1", fontWeight:600 }}>{row.trained}</div>
+
+            {/* Certified */}
+            <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>{row.certified}</div>
+
+            {/* Certification rate progress bar */}
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${Math.min(row.cert_pct || 0, 100)}%`, height:"100%", borderRadius:999,
+                    background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                    transition:"width 0.35s ease"
+                  }}/>
+                </div>
+                <span style={{ minWidth:40, textAlign:"right", fontWeight:800, fontSize:13,
+                  color: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}>
+                  {row.cert_pct}%
+                </span>
+              </div>
+            </div>
+
+            {/* Status pill */}
+            <div>{renderStatusPill(row)}</div>
+          </div>
+        ))}
+
+        {/* Footer */}
+        <div style={{ display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+          background:"#f8fafc", color:"#94a3b8", fontSize:11 }}>
+          <span>{dashboard.live ? "Live feed" : "MIS report data"} · {dashboard.source}</span>
+          <span>Fetched {timeAgo(dashboard.scraped_at)}</span>
+        </div>
+      </div>
+
+      {/* Source links */}
+      <div style={{ display:"flex", gap:12, marginTop:18, flexWrap:"wrap" }}>
+        {[
+          { label:"PMGDISHA MIS Dashboard", url:"https://www.pmgdisha.in/mis-dashboard", color:"#6366f1" },
+          { label:"PMGDISHA Official Portal", url:"https://www.pmgdisha.in/",            color:"#4338ca" },
+          { label:"CSC Digital Saksharta",   url:"https://www.csc.gov.in/",              color:"#0369a1" },
+        ].map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noreferrer" style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:`${link.color}12`, color:link.color,
+            border:`1px solid ${link.color}30`, borderRadius:999,
+            padding:"8px 16px", fontWeight:700, fontSize:12, textDecoration:"none"
+          }}>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── SBM-G Tab ──────────────────────────────────────────────────────────────
+function SbmgTab({ schemeDashboards, agg, onScrapeAll }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("ihhl_desc");
+
+  const dashboard = schemeDashboards.find(d => d.id === "sbmg") || null;
+
+  if (!dashboard && !agg) return <EmptyState onScrape={onScrapeAll}/>;
+  if (!dashboard) return (
+    <div style={{ background:"white", borderRadius:16, border:"2px dashed #e5e7eb", padding:60, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>🚿</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#0f172a", marginBottom:8 }}>SBM-G data loading…</div>
+      <div style={{ color:"#64748b", fontSize:13, marginBottom:20 }}>Click Refresh to fetch sanitation data from sbm.gov.in</div>
+      <button onClick={onScrapeAll} style={{ background:"#f59e0b", color:"white", borderRadius:12, padding:"12px 28px", fontWeight:800, fontSize:14, border:"none", cursor:"pointer" }}>⚡ Fetch SBM-G Data</button>
+    </div>
+  );
+
+  const { summary, rows = [], columns = [] } = dashboard;
+  const totals = summary?.state_totals || {};
+
+  const filtered = [...rows]
+    .filter(r => !search || String(r.district || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "ihhl_asc") return (a.ihhl_pct || 0) - (b.ihhl_pct || 0);
+      if (sortBy === "name")     return String(a.district || "").localeCompare(String(b.district || ""));
+      return (b.ihhl_pct || 0) - (a.ihhl_pct || 0);
+    });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone;
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04" }
+      : { bg:"#fee2e2", color:"#dc2626" };
+    return (
+      <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"6px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:108 }}>
+        {row.status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fadeup">
+      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+        <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+          SBM-G (Rajasthan) — <span style={{ color:"#d97706" }}>Gramin Sanitation</span>
+        </h2>
+        <InfoTip text="Swachh Bharat Mission Gramin — IHHL (Individual Household Latrine) coverage and ODF village data from sbm.gov.in district dashboard. Rajasthan declared ODF in 2019."/>
+      </div>
+      <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
+        Source: {dashboard.source} · {dashboard.report_label}
+      </p>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginBottom:20,
+        background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e",
+        borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800 }}>
+        <span style={{ width:8, height:8, borderRadius:"50%", background:dashboard.live ? "#f59e0b" : "#fcd34d", display:"inline-block" }}/>
+        {dashboard.verified_label}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:summary?.primary || "—",   label:summary?.primaryLabel || "Avg IHHL Coverage",  bg:"#fffbeb", border:"#fde68a", numC:"#b45309", txtC:"#92400e" },
+          { value:summary?.good ?? 0,         label:summary?.goodLabel || "Districts ≥95%",        bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:summary?.watch ?? 0,        label:summary?.watchLabel || "Districts 85–95%",     bg:"#fff7ed", border:"#fed7aa", numC:"#ea580c", txtC:"#9a3412" },
+          { value:summary?.critical ?? 0,     label:summary?.criticalLabel || "Critical",           bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, i) => (
+          <div key={i} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:i===0?32:46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>{item.value}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {totals.total_villages && (
+        <div style={{ background:"linear-gradient(135deg,#fffbeb,#fef3c7)", border:"1.5px solid #fde68a",
+          borderRadius:14, padding:"14px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:20, alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:18 }}>🚿</span>
+            <span style={{ fontWeight:800, fontSize:14, color:"#78350f" }}>Rajasthan State Totals ({totals.year})</span>
+          </div>
+          {[
+            { label:"Total Villages",  val:totals.total_villages,  color:"#b45309" },
+            { label:"ODF Villages",    val:totals.odf_villages,    color:"#16a34a" },
+            { label:"IHHL Target",     val:totals.ihhl_target,     color:"#0369a1" },
+            { label:"IHHL Completed",  val:totals.ihhl_completed,  color:"#16a34a" },
+            { label:"IHHL Coverage",   val:totals.ihhl_coverage,   color:"#f59e0b" },
+            { label:"ODF Status",      val:totals.odf_status,      color:"#047857" },
+          ].map((item, i) => (
+            <div key={i} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:i===5?12:15, fontWeight:900, color:item.color }}>{item.val}</div>
+              <div style={{ fontSize:10, color:"#92400e", fontWeight:600 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:18 }}>
+        Source: {dashboard.source} · {dashboard.note}
+      </p>
+
+      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ position:"relative", flex:1, minWidth:220 }}>
+          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search district…"
+            style={{ width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+              borderRadius:11, fontSize:13, background:"white", boxSizing:"border-box" }}/>
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}>
+          <option value="ihhl_desc">IHHL Coverage: High → Low</option>
+          <option value="ihhl_asc">IHHL Coverage: Low → High</option>
+          <option value="name">District: A – Z</option>
+        </select>
+        <span style={{ fontSize:12, color:"#94a3b8" }}>{filtered.length} of {rows.length} districts</span>
+      </div>
+
+      <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+          padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:12 }}>
+          {columns.map(col => (
+            <div key={col.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+
+        {filtered.map((row, idx) => (
+          <div key={`${row.district}-${idx}`}
+            style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+              padding:"15px 20px", gap:12, alignItems:"center",
+              borderBottom:"1px solid #f1f5f9", background:idx % 2 === 0 ? "white" : "#fcfcfd" }}>
+
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}/>
+              <span style={{ fontWeight:800, fontSize:14, color:"#0f172a" }}>{row.district}</span>
+            </div>
+            <div style={{ fontSize:13, color:"#b45309", fontWeight:600 }}>{row.villages}</div>
+            <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>{row.odf_villages}</div>
+
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${Math.min(row.ihhl_pct || 0, 100)}%`, height:"100%", borderRadius:999,
+                    background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                    transition:"width 0.35s ease"
+                  }}/>
+                </div>
+                <span style={{ minWidth:40, textAlign:"right", fontWeight:800, fontSize:13,
+                  color: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}>
+                  {row.ihhl_pct}%
+                </span>
+              </div>
+            </div>
+
+            <div style={{ fontSize:13, color:"#047857", fontWeight:700 }}>{row.odf_pct}%</div>
+            <div>{renderStatusPill(row)}</div>
+          </div>
+        ))}
+
+        <div style={{ display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+          background:"#f8fafc", color:"#94a3b8", fontSize:11 }}>
+          <span>{dashboard.live ? "Live feed" : "MIS report data"} · {dashboard.source}</span>
+          <span>Fetched {timeAgo(dashboard.scraped_at)}</span>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:12, marginTop:18, flexWrap:"wrap" }}>
+        {[
+          { label:"SBM-G District Dashboard", url:"https://sbm.gov.in/sbmgdashboard/StatesDashboard.aspx", color:"#f59e0b" },
+          { label:"SBM-G Official Portal",    url:"https://sbm.gov.in/",                                   color:"#b45309" },
+          { label:"SBM-G MIS Report",         url:"https://sbmreport.nic.in/",                             color:"#0369a1" },
+        ].map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noreferrer" style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:`${link.color}12`, color:link.color,
+            border:`1px solid ${link.color}30`, borderRadius:999,
+            padding:"8px 16px", fontWeight:700, fontSize:12, textDecoration:"none"
+          }}>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── PM Jan Dhan Tab ──────────────────────────────────────────────────────────
+function PmjdyTab({ schemeDashboards, agg, onScrapeAll }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("sat_desc");
+
+  const dashboard = schemeDashboards.find(d => d.id === "pmjdy") || null;
+
+  if (!dashboard && !agg) return <EmptyState onScrape={onScrapeAll}/>;
+
+  if (!dashboard) return (
+    <div style={{ background:"white", borderRadius:16, border:"2px dashed #e5e7eb", padding:60, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>🏦</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#0f172a", marginBottom:8 }}>PMJDY data loading…</div>
+      <div style={{ color:"#64748b", fontSize:13, marginBottom:20 }}>Click Refresh to fetch Jan Dhan account data from pmjdy.gov.in</div>
+      <button onClick={onScrapeAll} style={{ background:"#0ea5e9", color:"white", borderRadius:12, padding:"12px 28px", fontWeight:800, fontSize:14, border:"none", cursor:"pointer" }}>⚡ Fetch PMJDY Data</button>
+    </div>
+  );
+
+  const { summary, rows = [], columns = [] } = dashboard;
+  const totals = summary?.state_totals || {};
+
+  const filtered = [...rows]
+    .filter(r => !search || String(r.district || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "sat_asc")  return (a.saturation_pct || 0) - (b.saturation_pct || 0);
+      if (sortBy === "name")     return String(a.district || "").localeCompare(String(b.district || ""));
+      return (b.saturation_pct || 0) - (a.saturation_pct || 0);
+    });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone || (row.saturation_pct >= 85 ? "good" : row.saturation_pct >= 75 ? "watch" : "critical");
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04" }
+      : { bg:"#fee2e2", color:"#dc2626" };
+    return (
+      <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"6px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:108 }}>
+        {row.status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fadeup">
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+        <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+          PM Jan Dhan Yojana — <span style={{ color:"#0ea5e9" }}>Financial Inclusion</span>
+        </h2>
+        <InfoTip text="PMJDY account saturation data from pmjdy.gov.in weekly state progress reports. Saturation = accounts opened as % of adult population per district."/>
+      </div>
+      <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
+        Source: {dashboard.source} · {dashboard.report_label}
+      </p>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginBottom:20,
+        background:"#f0f9ff", border:"1px solid #bae6fd", color:"#0369a1",
+        borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800 }}>
+        <span style={{ width:8, height:8, borderRadius:"50%", background:dashboard.live ? "#0ea5e9" : "#7dd3fc", display:"inline-block" }}/>
+        {dashboard.verified_label}
+      </div>
+
+      {/* KPI summary cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:summary?.primary || "—",   label:summary?.primaryLabel || "Avg Saturation",  bg:"#eff6ff", border:"#bfdbfe", numC:"#1d4ed8", txtC:"#1e40af" },
+          { value:summary?.good ?? 0,         label:summary?.goodLabel || "Districts ≥85%",    bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:summary?.watch ?? 0,        label:summary?.watchLabel || "Districts 75–85%", bg:"#fffbeb", border:"#fde68a", numC:"#ea580c", txtC:"#9a3412" },
+          { value:summary?.critical ?? 0,     label:summary?.criticalLabel || "Critical",      bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, i) => (
+          <div key={i} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:i===0?32:46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>{item.value}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* State totals banner */}
+      {totals.total_accounts && (
+        <div style={{ background:"linear-gradient(135deg,#f0f9ff,#e0f2fe)", border:"1.5px solid #bae6fd",
+          borderRadius:14, padding:"14px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:20, alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:18 }}>🏦</span>
+            <span style={{ fontWeight:800, fontSize:14, color:"#0c4a6e" }}>Rajasthan State Totals ({totals.week})</span>
+          </div>
+          {[
+            { label:"Total Accounts",  val:totals.total_accounts,  color:"#0369a1" },
+            { label:"Zero Balance",    val:totals.zero_bal,        color:"#dc2626" },
+            { label:"RuPay Cards",     val:totals.rupay_cards,     color:"#16a34a" },
+            { label:"Total Balance",   val:totals.total_balance,   color:"#0369a1" },
+            { label:"Avg Balance",     val:totals.avg_balance,     color:"#7c3aed" },
+            { label:"Saturation",      val:totals.saturation,      color:"#0ea5e9" },
+          ].map((item, i) => (
+            <div key={i} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:16, fontWeight:900, color:item.color }}>{item.val}</div>
+              <div style={{ fontSize:10, color:"#0369a1", fontWeight:600 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:18 }}>
+        Source: {dashboard.source} · {dashboard.note}
+      </p>
+
+      {/* Search + sort */}
+      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ position:"relative", flex:1, minWidth:220 }}>
+          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search district…"
+            style={{ width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+              borderRadius:11, fontSize:13, background:"white", boxSizing:"border-box" }}/>
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}>
+          <option value="sat_desc">Saturation: High → Low</option>
+          <option value="sat_asc">Saturation: Low → High</option>
+          <option value="name">District: A – Z</option>
+        </select>
+        <span style={{ fontSize:12, color:"#94a3b8" }}>{filtered.length} of {rows.length} districts</span>
+      </div>
+
+      {/* District table */}
+      <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+        {/* Column headers */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+          padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:12 }}>
+          {columns.map(col => (
+            <div key={col.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Data rows */}
+        {filtered.map((row, idx) => (
+          <div key={`${row.district}-${idx}`}
+            style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+              padding:"15px 20px", gap:12, alignItems:"center",
+              borderBottom:"1px solid #f1f5f9", background:idx % 2 === 0 ? "white" : "#fcfcfd" }}>
+
+            {/* District */}
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}/>
+              <span style={{ fontWeight:800, fontSize:14, color:"#0f172a" }}>{row.district}</span>
+            </div>
+
+            {/* Accounts */}
+            <div style={{ fontSize:13, color:"#0369a1", fontWeight:600 }}>{row.accounts}</div>
+
+            {/* Zero balance */}
+            <div style={{ fontSize:13, color:"#dc2626", fontWeight:600 }}>{row.zero_bal_pct}</div>
+
+            {/* RuPay cards */}
+            <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>{row.rupay_cards}</div>
+
+            {/* Saturation progress bar */}
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${Math.min(row.saturation_pct || 0, 100)}%`, height:"100%", borderRadius:999,
+                    background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                    transition:"width 0.35s ease"
+                  }}/>
+                </div>
+                <span style={{ minWidth:40, textAlign:"right", fontWeight:800, fontSize:13,
+                  color: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}>
+                  {row.saturation_pct}%
+                </span>
+              </div>
+            </div>
+
+            {/* Status pill */}
+            <div>{renderStatusPill(row)}</div>
+          </div>
+        ))}
+
+        {/* Footer */}
+        <div style={{ display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+          background:"#f8fafc", color:"#94a3b8", fontSize:11 }}>
+          <span>{dashboard.live ? "Live feed" : "Weekly report data"} · {dashboard.source}</span>
+          <span>Fetched {timeAgo(dashboard.scraped_at)}</span>
+        </div>
+      </div>
+
+      {/* Source links */}
+      <div style={{ display:"flex", gap:12, marginTop:18, flexWrap:"wrap" }}>
+        {[
+          { label:"PMJDY Official Portal",      url:"https://pmjdy.gov.in/account",                color:"#0ea5e9" },
+          { label:"State-wise Progress Report", url:"https://pmjdy.gov.in/statewise-statistics",  color:"#0369a1" },
+          { label:"Weekly Progress Report",     url:"https://pmjdy.gov.in/scheme",                color:"#0284c7" },
+        ].map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noreferrer" style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:`${link.color}12`, color:link.color,
+            border:`1px solid ${link.color}30`, borderRadius:999,
+            padding:"8px 16px", fontWeight:700, fontSize:12, textDecoration:"none"
+          }}>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── PMAY-G Tab ──────────────────────────────────────────────────────────────
+function PmayGTab({ schemeDashboards, agg, onScrapeAll }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("comp_desc");
+
+  const dashboard = schemeDashboards.find(d => d.id === "pmayg") || null;
+
+  if (!dashboard && !agg) return <EmptyState onScrape={onScrapeAll}/>;
+  if (!dashboard) return (
+    <div style={{ background:"white", borderRadius:16, border:"2px dashed #e5e7eb", padding:60, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>🏠</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#0f172a", marginBottom:8 }}>PMAY-G data loading…</div>
+      <div style={{ color:"#64748b", fontSize:13, marginBottom:20 }}>Click Refresh to fetch rural housing data from rhreporting.nic.in</div>
+      <button onClick={onScrapeAll} style={{ background:"#f97316", color:"white", borderRadius:12, padding:"12px 28px", fontWeight:800, fontSize:14, border:"none", cursor:"pointer" }}>⚡ Fetch PMAY-G Data</button>
+    </div>
+  );
+
+  const { summary, rows = [], columns = [] } = dashboard;
+  const totals = summary?.state_totals || {};
+
+  const filtered = [...rows]
+    .filter(r => !search || String(r.district || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "comp_asc") return (a.completion_pct || 0) - (b.completion_pct || 0);
+      if (sortBy === "name")     return String(a.district || "").localeCompare(String(b.district || ""));
+      return (b.completion_pct || 0) - (a.completion_pct || 0);
+    });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone;
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04" }
+      : { bg:"#fee2e2", color:"#dc2626" };
+    return (
+      <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"6px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:108 }}>
+        {row.status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fadeup">
+      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+        <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+          PMAY-G (Rajasthan) — <span style={{ color:"#f97316" }}>Rural Housing</span>
+        </h2>
+        <InfoTip text="Pradhan Mantri Awas Yojana Gramin — district-wise rural housing data from rhreporting.nic.in MIS and pmayg.dord.gov.in. Completion rate = houses completed / houses sanctioned × 100."/>
+      </div>
+      <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
+        Source: {dashboard.source} · {dashboard.report_label}
+      </p>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginBottom:20,
+        background:"#fff7ed", border:"1px solid #fed7aa", color:"#9a3412",
+        borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800 }}>
+        <span style={{ width:8, height:8, borderRadius:"50%", background:dashboard.live ? "#f97316" : "#fdba74", display:"inline-block" }}/>
+        {dashboard.verified_label}
+      </div>
+
+      {/* KPI summary cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:summary?.primary || "—",   label:summary?.primaryLabel || "Avg Completion Rate", bg:"#fff7ed", border:"#fed7aa", numC:"#c2410c", txtC:"#9a3412" },
+          { value:summary?.good ?? 0,         label:summary?.goodLabel || "Districts ≥85%",         bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:summary?.watch ?? 0,        label:summary?.watchLabel || "Districts 70–85%",      bg:"#fffbeb", border:"#fde68a", numC:"#ea580c", txtC:"#9a3412" },
+          { value:summary?.critical ?? 0,     label:summary?.criticalLabel || "Critical",            bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, i) => (
+          <div key={i} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:i===0?32:46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>{item.value}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* State totals banner */}
+      {totals.sanctioned && (
+        <div style={{ background:"linear-gradient(135deg,#fff7ed,#ffedd5)", border:"1.5px solid #fed7aa",
+          borderRadius:14, padding:"14px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:20, alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:18 }}>🏠</span>
+            <span style={{ fontWeight:800, fontSize:14, color:"#7c2d12" }}>Rajasthan State Totals ({totals.year})</span>
+          </div>
+          {[
+            { label:"Sanctioned",      val:totals.sanctioned,      color:"#c2410c" },
+            { label:"Completed",       val:totals.completed,       color:"#16a34a" },
+            { label:"In Progress",     val:totals.in_progress,     color:"#0369a1" },
+            { label:"Completion Rate", val:totals.completion_rate, color:"#f97316" },
+            { label:"Funds Released",  val:totals.funds_released,  color:"#7c3aed" },
+          ].map((item, i) => (
+            <div key={i} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:15, fontWeight:900, color:item.color }}>{item.val}</div>
+              <div style={{ fontSize:10, color:"#9a3412", fontWeight:600 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:18 }}>
+        Source: {dashboard.source} · {dashboard.note}
+      </p>
+
+      {/* Search + sort */}
+      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ position:"relative", flex:1, minWidth:220 }}>
+          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search district…"
+            style={{ width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+              borderRadius:11, fontSize:13, background:"white", boxSizing:"border-box" }}/>
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}>
+          <option value="comp_desc">Completion: High → Low</option>
+          <option value="comp_asc">Completion: Low → High</option>
+          <option value="name">District: A – Z</option>
+        </select>
+        <span style={{ fontSize:12, color:"#94a3b8" }}>{filtered.length} of {rows.length} districts</span>
+      </div>
+
+      {/* District table */}
+      <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+          padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:12 }}>
+          {columns.map(col => (
+            <div key={col.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+
+        {filtered.map((row, idx) => (
+          <div key={`${row.district}-${idx}`}
+            style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+              padding:"15px 20px", gap:12, alignItems:"center",
+              borderBottom:"1px solid #f1f5f9", background:idx % 2 === 0 ? "white" : "#fcfcfd" }}>
+
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}/>
+              <span style={{ fontWeight:800, fontSize:14, color:"#0f172a" }}>{row.district}</span>
+            </div>
+            <div style={{ fontSize:13, color:"#c2410c", fontWeight:600 }}>{row.sanctioned}</div>
+            <div style={{ fontSize:13, color:"#16a34a", fontWeight:600 }}>{row.completed}</div>
+            <div style={{ fontSize:13, color:"#0369a1", fontWeight:600 }}>{row.in_progress}</div>
+
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${Math.min(row.completion_pct || 0, 100)}%`, height:"100%", borderRadius:999,
+                    background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                    transition:"width 0.35s ease"
+                  }}/>
+                </div>
+                <span style={{ minWidth:40, textAlign:"right", fontWeight:800, fontSize:13,
+                  color: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}>
+                  {row.completion_pct}%
+                </span>
+              </div>
+            </div>
+            <div>{renderStatusPill(row)}</div>
+          </div>
+        ))}
+
+        <div style={{ display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+          background:"#f8fafc", color:"#94a3b8", fontSize:11 }}>
+          <span>{dashboard.live ? "Live feed" : "MIS report data"} · {dashboard.source}</span>
+          <span>Fetched {timeAgo(dashboard.scraped_at)}</span>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:12, marginTop:18, flexWrap:"wrap" }}>
+        {[
+          { label:"PMAY-G MIS Dashboard",   url:"https://rhreporting.nic.in/netiay/PhysicalProgressReport/physicalProgressMainReport.aspx", color:"#f97316" },
+          { label:"PMAY-G Official Portal",  url:"https://pmayg.dord.gov.in/",                                                              color:"#c2410c" },
+          { label:"AwaasSoft MIS",           url:"https://rhreporting.nic.in/",                                                             color:"#0369a1" },
+        ].map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noreferrer" style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:`${link.color}12`, color:link.color,
+            border:`1px solid ${link.color}30`, borderRadius:999,
+            padding:"8px 16px", fontWeight:700, fontSize:12, textDecoration:"none"
+          }}>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Scholarship Tab ─────────────────────────────────────────────────────────────
+function ScholarshipTab({ schemeDashboards, agg, onScrapeAll }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("approved_desc");
+
+  const dashboard = schemeDashboards.find(d => d.id === "scholarship") || null;
+
+  if (!dashboard && !agg) return <EmptyState onScrape={onScrapeAll}/>;
+
+  if (!dashboard) return (
+    <div style={{ background:"white", borderRadius:16, border:"2px dashed #e5e7eb", padding:60, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>🎓</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#0f172a", marginBottom:8 }}>Scholarship data loading…</div>
+      <div style={{ color:"#64748b", fontSize:13, marginBottom:20 }}>Click Refresh to fetch SC/ST/OBC scholarship data from NSP + SJE Rajasthan</div>
+      <button onClick={onScrapeAll} style={{ background:"#8b5cf6", color:"white", borderRadius:12, padding:"12px 28px", fontWeight:800, fontSize:14, border:"none", cursor:"pointer" }}>⚡ Fetch Scholarship Data</button>
+    </div>
+  );
+
+  const { summary, rows = [], columns = [] } = dashboard;
+  const totals = summary?.state_totals || {};
+
+  const filtered = [...rows]
+    .filter(r => !search || String(r.district || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "approved_asc") return (a.approved_pct || 0) - (b.approved_pct || 0);
+      if (sortBy === "name") return String(a.district || "").localeCompare(String(b.district || ""));
+      return (b.approved_pct || 0) - (a.approved_pct || 0);
+    });
+
+  const renderStatusPill = (row) => {
+    const tone = row.status_tone || (row.approved_pct >= 75 ? "good" : row.approved_pct >= 60 ? "watch" : "critical");
+    const styles = tone === "good"
+      ? { bg:"#d1fae5", color:"#047857" }
+      : tone === "watch"
+      ? { bg:"#fef9c3", color:"#ca8a04" }
+      : { bg:"#fee2e2", color:"#dc2626" };
+    return (
+      <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+        borderRadius:999, padding:"6px 14px", fontWeight:700, fontSize:12,
+        background:styles.bg, color:styles.color, minWidth:108 }}>
+        {row.status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fadeup">
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+        <h2 style={{ fontSize:24, fontWeight:900, margin:0 }}>
+          Scholarship (SC/ST/OBC) — <span style={{ color:"#8b5cf6" }}>NSP + SJE Rajasthan</span>
+        </h2>
+        <InfoTip text="Post-Matric and Pre-Matric scholarship data from National Scholarship Portal (scholarships.gov.in) and SJE Rajasthan (sje.rajasthan.gov.in). Covers SC, ST, and OBC categories."/>
+      </div>
+      <p style={{ color:"#6b7280", fontSize:13, marginBottom:4 }}>
+        Source: {dashboard.source} · {dashboard.report_label}
+      </p>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginBottom:20,
+        background:"#f5f3ff", border:"1px solid #ddd6fe", color:"#6d28d9",
+        borderRadius:999, padding:"7px 14px", fontSize:12.5, fontWeight:800 }}>
+        <span style={{ width:8, height:8, borderRadius:"50%", background:dashboard.live ? "#8b5cf6" : "#a78bfa", display:"inline-block" }}/>
+        {dashboard.verified_label}
+      </div>
+
+      {/* State-level KPI cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { value:summary?.primary || "—",          label:summary?.primaryLabel || "Approval Rate",    bg:"#eff6ff", border:"#bfdbfe", numC:"#4338ca", txtC:"#3730a3" },
+          { value:summary?.good ?? 0,                label:summary?.goodLabel || "Districts >75%",     bg:"#f0fdf4", border:"#bbf7d0", numC:"#16a34a", txtC:"#166534" },
+          { value:summary?.watch ?? 0,               label:summary?.watchLabel || "Districts 60–75%",  bg:"#fffbeb", border:"#fde68a", numC:"#ea580c", txtC:"#9a3412" },
+          { value:summary?.critical ?? 0,            label:summary?.criticalLabel || "Critical",       bg:"#fff1f2", border:"#fecdd3", numC:"#e11d48", txtC:"#9f1239" },
+        ].map((item, i) => (
+          <div key={i} style={{ background:item.bg, border:`1.5px solid ${item.border}`, borderRadius:16, padding:"18px 22px" }}>
+            <div style={{ fontSize:i===0?32:46, lineHeight:1, fontWeight:900, color:item.numC, marginBottom:8 }}>{item.value}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:item.txtC }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* State totals banner */}
+      {totals.total_applicants && (
+        <div style={{ background:"linear-gradient(135deg,#f5f3ff,#ede9fe)", border:"1.5px solid #ddd6fe",
+          borderRadius:14, padding:"14px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:20, alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ fontSize:18 }}>🎓</span>
+            <span style={{ fontWeight:800, fontSize:14, color:"#4c1d95" }}>Rajasthan State Totals ({totals.year})</span>
+          </div>
+          {[
+            { label:"Total Applicants", val:totals.total_applicants, color:"#6d28d9" },
+            { label:"SC Applicants",    val:totals.sc_applicants,    color:"#1d4ed8" },
+            { label:"ST Applicants",    val:totals.st_applicants,    color:"#065f46" },
+            { label:"OBC Applicants",   val:totals.obc_applicants,   color:"#92400e" },
+            { label:"Approved",         val:totals.approved,         color:"#166534" },
+            { label:"Disbursed",        val:totals.disbursed,        color:"#7c3aed" },
+          ].map((item, i) => (
+            <div key={i} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:16, fontWeight:900, color:item.color }}>{item.val}</div>
+              <div style={{ fontSize:10, color:"#7c3aed", fontWeight:600 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Official source note */}
+      <p style={{ color:"#94a3b8", fontSize:12, marginBottom:18 }}>
+        Source: {dashboard.source} · {dashboard.note}
+      </p>
+
+      {/* Search + sort */}
+      <div style={{ display:"flex", gap:12, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ position:"relative", flex:1, minWidth:220 }}>
+          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:15 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search district…"
+            style={{ width:"100%", padding:"10px 12px 10px 38px", border:"1px solid #e2e8f0",
+              borderRadius:11, fontSize:13, background:"white", boxSizing:"border-box" }}/>
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          style={{ padding:"10px 14px", border:"1px solid #e2e8f0", borderRadius:11, fontSize:13, background:"white" }}>
+          <option value="approved_desc">Approval: High → Low</option>
+          <option value="approved_asc">Approval: Low → High</option>
+          <option value="name">District: A – Z</option>
+        </select>
+        <span style={{ fontSize:12, color:"#94a3b8" }}>{filtered.length} of {rows.length} districts</span>
+      </div>
+
+      {/* District table */}
+      <div style={{ background:"white", borderRadius:18, border:"1px solid #e5e7eb", overflow:"hidden", boxShadow:"0 6px 18px rgba(15,23,42,0.04)" }}>
+        {/* Header */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+          padding:"14px 20px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:12 }}>
+          {columns.map(col => (
+            <div key={col.key} style={{ fontSize:11, fontWeight:800, color:"#94a3b8", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Rows */}
+        {filtered.map((row, idx) => (
+          <div key={`${row.district}-${idx}`}
+            style={{ display:"grid", gridTemplateColumns:"repeat(6,minmax(0,1fr))",
+              padding:"15px 20px", gap:12, alignItems:"center",
+              borderBottom:"1px solid #f1f5f9", background:idx % 2 === 0 ? "white" : "#fcfcfd" }}>
+
+            {/* District name */}
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}/>
+              <span style={{ fontWeight:800, fontSize:14, color:"#0f172a" }}>{row.district}</span>
+            </div>
+
+            {/* SC */}
+            <div style={{ fontSize:13, color:"#1d4ed8", fontWeight:600 }}>{row.sc_applicants}</div>
+
+            {/* ST */}
+            <div style={{ fontSize:13, color:"#065f46", fontWeight:600 }}>{row.st_applicants}</div>
+
+            {/* OBC */}
+            <div style={{ fontSize:13, color:"#92400e", fontWeight:600 }}>{row.obc_applicants}</div>
+
+            {/* Approval rate progress bar */}
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1, height:8, background:"#dbe4f0", borderRadius:999, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${Math.min(row.approved_pct || 0, 100)}%`, height:"100%", borderRadius:999,
+                    background: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444",
+                    transition:"width 0.35s ease"
+                  }}/>
+                </div>
+                <span style={{ minWidth:40, textAlign:"right", fontWeight:800, fontSize:13,
+                  color: row.status_tone === "good" ? "#16a34a" : row.status_tone === "watch" ? "#f97316" : "#ef4444" }}>
+                  {row.approved_pct}%
+                </span>
+              </div>
+            </div>
+
+            {/* Status pill */}
+            <div>{renderStatusPill(row)}</div>
+          </div>
+        ))}
+
+        {/* Footer */}
+        <div style={{ display:"flex", justifyContent:"space-between", gap:10, padding:"12px 20px",
+          background:"#f8fafc", color:"#94a3b8", fontSize:11 }}>
+          <span>{dashboard.live ? "Live feed" : "Verified report data"} · {dashboard.source}</span>
+          <span>Fetched {timeAgo(dashboard.scraped_at)}</span>
+        </div>
+      </div>
+
+      {/* Source links */}
+      <div style={{ display:"flex", gap:12, marginTop:18, flexWrap:"wrap" }}>
+        {[
+          { label:"National Scholarship Portal", url:"https://scholarships.gov.in/", color:"#8b5cf6" },
+          { label:"SJE Rajasthan", url:"https://sje.rajasthan.gov.in/", color:"#6d28d9" },
+          { label:"NSP Rajasthan Schemes", url:"https://scholarships.gov.in/public/schemeData/getSchemeList?stateCode=08", color:"#7c3aed" },
+        ].map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noreferrer" style={{
+            display:"inline-flex", alignItems:"center", gap:6,
+            background:`${link.color}12`, color:link.color,
+            border:`1px solid ${link.color}30`, borderRadius:999,
+            padding:"8px 16px", fontWeight:700, fontSize:12, textDecoration:"none"
+          }}>
+            {link.label} ↗
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Root App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab,setTab]           = useState("dashboard");
@@ -1889,6 +3717,7 @@ export default function App() {
   const [budgetLoading,setBudgetLoading] = useState(false);
   const [rajrasData, setRajrasData] = useState([]);
   const [jansoochnaData, setJansoochnaData] = useState([]);
+  const [schemeDashboards, setSchemeDashboards] = useState([]);
 
   const addLog = useCallback((msg,type="info")=>{
     const ts=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
@@ -1900,13 +3729,14 @@ export default function App() {
   const poll = useCallback(async(silent=true)=>{
     if(!silent) setRef(true);
     try {
-      const [s,a,rj,jsp,ms,ig]=await Promise.all([
+      const [s,a,rj,jsp,ms,ig,sd]=await Promise.all([
         axios.get(`${API}/status`).catch(()=>null),
         axios.get(`${API}/aggregate`).catch(()=>null),
         axios.get(`${API}/data/rajras`).catch(()=>null),
         axios.get(`${API}/data/jansoochna`).catch(()=>null),
         axios.get(`${API}/data/myscheme`).catch(()=>null),
         axios.get(`${API}/data/igod`).catch(()=>null),
+        axios.get(`${API}/scheme-dashboards`).catch(()=>null),
       ]);
       const nextStatus = s?.data?.sources || {};
       const rajrasRows = Array.isArray(rj?.data) ? rj.data : [];
@@ -1928,6 +3758,7 @@ export default function App() {
       }
       setRajrasData(rajrasRows);
       setJansoochnaData(jansoochnaRows);
+      setSchemeDashboards(Array.isArray(sd?.data?.data) ? sd.data.data : []);
       if(!silent) addLog("✅ Data refreshed","success");
     } catch(e){ if(!silent) addLog("❌ Refresh failed","error"); }
     if(!silent) setRef(false);
@@ -1977,8 +3808,17 @@ export default function App() {
   const TABS=[
     {id:"dashboard",label:"Dashboard",icon:"◉"},
     {id:"schemes",label:"Schemes",icon:"⊞",badge:totalSchemes||null},
+    {id:"igod",label:"IGOD",icon:"🏛️",badge:totalPortals||null},
     {id:"budget",label:"Budget Data",icon:"₹"},
-    {id:"districts",label:"Districts",icon:"🗺️"},
+    {id:"districts",label:"Districts-Insights",icon:"🗺️"},
+    //{id:"pmjdy",label:"Jan Dhan",icon:"🏦"},
+   // {id:"sbmg",label:"SBM-G",icon:"🚿"},
+   // {id:"pmgdisha",label:"PMGDISHA",icon:"💻"},
+   // {id:"saubhagya",label:"Saubhagya",icon:"⚡"},
+   // {id:"mgnrega_raj",label:"MGNREGA",icon:"🏗️"},
+   // {id:"pmfby",label:"PMFBY",icon:"🌾"},
+   // {id:"pmayg",label:"PMAY-G",icon:"🏠"},
+   // {id:"scholarship",label:"Scholarship",icon:"🎓"},
     {id:"alerts",label:"Live Alerts",icon:"⚡",badge:criticalCount||null},
     {id:"insights",label:"AI Insights",icon:"🧠",highlight:true},
   ];
@@ -2021,16 +3861,22 @@ export default function App() {
           borderTop:"1px solid #f3f4f6", overflowX:"auto" }}>
           {Object.entries(SRC).map(([sid,s])=>{
             const st=srcStatus[sid]||{};
+            const targetTab = sid === "igod" ? "igod" : sid === "myscheme" || sid === "rajras" || sid === "jansoochna" ? "schemes" : "dashboard";
             return (
-              <div key={sid} style={{ display:"flex", alignItems:"center", gap:6,
-                background:st.status==="ok"?`${s.color}10`:"#f1f5f9",
-                border:`1px solid ${st.status==="ok"?s.color+"30":"#e5e7eb"}`,
-                borderRadius:6, padding:"4px 10px", fontSize:11, whiteSpace:"nowrap" }}>
+              <button
+                key={sid}
+                onClick={()=>setTab(targetTab)}
+                style={{ display:"flex", alignItems:"center", gap:6,
+                  background:st.status==="ok"?`${s.color}10`:"#f1f5f9",
+                  border:`1px solid ${st.status==="ok"?s.color+"30":"#e5e7eb"}`,
+                  borderRadius:6, padding:"4px 10px", fontSize:11, whiteSpace:"nowrap",
+                  cursor:"pointer" }}
+              >
                 <StatusDot status={scraping[sid]?"loading":st.status||"idle"} animating={!!scraping[sid]}/>
                 <span style={{ fontWeight:600, color:"#374151" }}>{s.icon} {s.label}</span>
                 {st.count>0&&<span style={{ color:s.color, fontWeight:800 }}>{st.count}</span>}
                 {st.scraped_at&&<span style={{ color:"#94a3b8" }}>{timeAgo(st.scraped_at)}</span>}
-              </div>
+              </button>
             );
           })}
           {agg?.scraped_at&&(
@@ -2111,10 +3957,19 @@ export default function App() {
           scraping={scraping} scrapingAll={scrapingAll} online={online}
           budget={budget} budgetLoading={budgetLoading}/>}
         {tab==="schemes"&&<SchemesTab agg={agg} rajrasData={rajrasData} jansoochnaData={jansoochnaData} onScrapeAll={scrapeAll}/>}
+        {tab==="igod"&&<PortalsTab agg={agg} onScrapeAll={scrapeAll}/>}
         {tab==="budget"&&<BudgetDataTab budget={budget} budgetLoading={budgetLoading}
           onRefresh={()=>{ setBudget(null); setBudgetLoading(true);
             fetch(`${API}/budget?refresh=true`).then(r=>r.json()).then(d=>{setBudget(d);setBudgetLoading(false);}).catch(()=>setBudgetLoading(false)); }}/>}
-        {tab==="districts"&&<DistrictsTab agg={agg} onScrapeAll={scrapeAll}/>}
+        {tab==="districts"&&<DistrictsTab agg={agg} onScrapeAll={scrapeAll} schemeDashboards={schemeDashboards}/>}
+        {tab==="pmjdy"&&<PmjdyTab schemeDashboards={schemeDashboards} agg={agg} onScrapeAll={scrapeAll}/>}
+        {tab==="sbmg"&&<SbmgTab schemeDashboards={schemeDashboards} agg={agg} onScrapeAll={scrapeAll}/>}
+        {tab==="pmgdisha"&&<PmgdishaTab schemeDashboards={schemeDashboards} agg={agg} onScrapeAll={scrapeAll}/>}
+        {tab==="saubhagya"&&<SaubhagyaTab schemeDashboards={schemeDashboards} agg={agg} onScrapeAll={scrapeAll}/>}
+        {tab==="mgnrega_raj"&&<MgnregaTab schemeDashboards={schemeDashboards} agg={agg} onScrapeAll={scrapeAll}/>}
+        {tab==="pmfby"&&<PmfbyTab schemeDashboards={schemeDashboards} agg={agg} onScrapeAll={scrapeAll}/>}
+        {tab==="pmayg"&&<PmayGTab schemeDashboards={schemeDashboards} agg={agg} onScrapeAll={scrapeAll}/>}
+        {tab==="scholarship"&&<ScholarshipTab schemeDashboards={schemeDashboards} agg={agg} onScrapeAll={scrapeAll}/>}
         {tab==="alerts"&&<AlertsTab agg={agg} onScrapeAll={scrapeAll}/>}
         {tab==="insights"&&<InsightsEngine schemes={agg?.schemes||[]} portals={agg?.portals||[]} onScrapeFirst={scrapeAll}/>}
       </div>

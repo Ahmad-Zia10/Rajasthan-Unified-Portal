@@ -22,6 +22,8 @@ from scrapers.jansoochna_scraper import scrape_jansoochna as scrape_jansoochna_b
 from scrapers.myscheme_scraper   import scrape_myscheme
 from scrapers.budget_scraper     import scrape_budget
 from scrapers.jjm_scraper        import scrape_jjm
+from scrapers.pmksy_scraper      import scrape_pmksy
+from scrapers.scheme_dashboard_scraper import scrape_scheme_dashboards
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 log = logging.getLogger("api")
@@ -30,8 +32,8 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
-    """Auto-scrape all sources + JJM districts on startup."""
-    log.info("🚀 Startup: kicking off background scrape of all sources + JJM districts...")
+    """Auto-scrape all sources + district dashboards on startup."""
+    log.info("🚀 Startup: kicking off background scrape of all sources + district dashboards...")
     async def _scrape_all(): await asyncio.gather(*[_run(sid, fn) for sid, fn in SCRAPERS.items()])
     asyncio.create_task(_scrape_all())
 
@@ -44,7 +46,27 @@ async def lifespan(app_: FastAPI):
         }
         log.info("✅ JJM startup: %d districts", len(data))
 
+    async def _fetch_pmksy_startup():
+        data = await asyncio.to_thread(scrape_pmksy)
+        _cache[PMKSY_CACHE_KEY] = {
+            "data": data,
+            "live": any(d.get("live") for d in data),
+            "scraped_at": data[0].get("scraped_at") if data else None,
+        }
+        log.info("✅ PMKSY startup: %d districts", len(data))
+
+    async def _fetch_scheme_dashboards_startup():
+        data = await asyncio.to_thread(scrape_scheme_dashboards)
+        _cache[SCHEME_DASHBOARD_CACHE_KEY] = {
+            "data": data,
+            "live": any(item.get("live") for item in data),
+            "scraped_at": datetime.utcnow().isoformat() + "Z",
+        }
+        log.info("✅ Scheme dashboards startup: %d scheme cards", len(data))
+
     asyncio.create_task(_fetch_jjm_startup())
+    asyncio.create_task(_fetch_pmksy_startup())
+    asyncio.create_task(_fetch_scheme_dashboards_startup())
     yield
 
 app = FastAPI(title="Rajasthan Dashboard API v3", lifespan=lifespan)
@@ -77,6 +99,8 @@ SCRAPERS = {
 }
 BUDGET_CACHE_KEY = "budget"
 JJM_CACHE_KEY    = "jjm"
+PMKSY_CACHE_KEY  = "pmksy"
+SCHEME_DASHBOARD_CACHE_KEY = "scheme_dashboards"
 
 # ── scrape helpers ─────────────────────────────────────────────────────────────
 def _store(sid, data, status="ok", error=""):
@@ -120,6 +144,27 @@ def status():
 @app.post("/scrape/all")
 async def scrape_all():
     results = await asyncio.gather(*[_run(sid, fn) for sid, fn in SCRAPERS.items()])
+    try:
+        jjm = await asyncio.to_thread(scrape_jjm)
+        _cache[JJM_CACHE_KEY] = {
+            "data": jjm,
+            "live": any(d.get("live") for d in jjm),
+            "scraped_at": jjm[0].get("scraped_at") if jjm else None,
+        }
+        pmksy = await asyncio.to_thread(scrape_pmksy)
+        _cache[PMKSY_CACHE_KEY] = {
+            "data": pmksy,
+            "live": any(d.get("live") for d in pmksy),
+            "scraped_at": pmksy[0].get("scraped_at") if pmksy else None,
+        }
+        dashboards = await asyncio.to_thread(scrape_scheme_dashboards)
+        _cache[SCHEME_DASHBOARD_CACHE_KEY] = {
+            "data": dashboards,
+            "live": any(item.get("live") for item in dashboards),
+            "scraped_at": datetime.utcnow().isoformat() + "Z",
+        }
+    except Exception as exc:
+        log.warning("District dashboard refresh failed during scrape/all: %s", exc)
     return {"results": {r["source_id"]: {"status": r["status"], "count": r["count"]} for r in results}}
 
 @app.post("/scrape/{source_id}")
@@ -173,6 +218,24 @@ def get_data(source_id: str, limit: Optional[int] = None):
 @app.get("/data")
 def get_all():
     return {sid: _cache.get(sid, {"status": "not_scraped", "data": [], "count": 0}) for sid in SCRAPERS}
+
+
+@app.get("/scheme-dashboards")
+async def get_scheme_dashboards(refresh: bool = False):
+    """
+    Returns normalized scheme dashboard data for the district dashboard tab.
+    Live public metrics are returned when source pages expose them; otherwise the
+    response includes truthful limited-source states for the frontend to render.
+    """
+    if not refresh and SCHEME_DASHBOARD_CACHE_KEY in _cache:
+        return _cache[SCHEME_DASHBOARD_CACHE_KEY]
+    data = await asyncio.to_thread(scrape_scheme_dashboards)
+    _cache[SCHEME_DASHBOARD_CACHE_KEY] = {
+        "data": data,
+        "live": any(item.get("live") for item in data),
+        "scraped_at": datetime.utcnow().isoformat() + "Z",
+    }
+    return _cache[SCHEME_DASHBOARD_CACHE_KEY]
 
 # ── Scheme enrichment helpers ──────────────────────────────────────────────────
 
@@ -281,6 +344,25 @@ def _enrich_scheme(s):
     }
 
 
+def _normalize_portal(p):
+    """Return a stable portal object for IGOD records."""
+    name = p.get("name") or p.get("organization_name") or p.get("portal_title") or "Government Portal"
+    url = p.get("url") or p.get("website_url") or ""
+    description = p.get("description") or p.get("meta_description") or p.get("summary") or ""
+    return {
+        **p,
+        "name": name,
+        "organization_name": p.get("organization_name") or name,
+        "portal_title": p.get("portal_title") or p.get("page_title") or name,
+        "url": url,
+        "website_url": p.get("website_url") or url,
+        "description": description,
+        "summary": p.get("summary") or description,
+        "category": p.get("category") or "Government Services",
+        "status": p.get("status") or "Active",
+    }
+
+
 # ── aggregate ──────────────────────────────────────────────────────────────────
 @app.get("/aggregate")
 def aggregate():
@@ -325,11 +407,11 @@ def aggregate():
         {"source": "RajRAS",      "count": len(rr_raw),  "color": "#3b82f6"},
         {"source": "Jan Soochna", "count": len(jsp_raw), "color": "#10b981"},
         {"source": "MyScheme",    "count": len(ms_raw),  "color": "#8b5cf6"},
-        {"source": "IGOD Portals","count": len(igod_raw),"color": "#f97316"},
+        {"source": "IGOD Directory","count": len(igod_raw),"color": "#f97316"},
     ]
 
     # ── 4. Portals (igod only) ─────────────────────────────────────────────────
-    portals = igod_raw  # fields: id, position, name, url, domain, category, description, portal_title, status, source, scraped_at
+    portals = [_normalize_portal(p) for p in igod_raw]
 
     # ── 5. KPIs ────────────────────────────────────────────────────────────────
     sources_live = sum(1 for sid in SCRAPERS if _cache.get(sid, {}).get("status") == "ok")
@@ -359,8 +441,10 @@ def aggregate():
     }
 
     # Attach live JJM districts if available in cache
-    jjm_cache    = _cache.get(JJM_CACHE_KEY, {})
+    jjm_cache     = _cache.get(JJM_CACHE_KEY, {})
     jjm_districts = jjm_cache.get("data", [])
+    pmksy_cache   = _cache.get(PMKSY_CACHE_KEY, {})
+    pmksy_districts = pmksy_cache.get("data", [])
 
     return {
         "scraped_at":     datetime.utcnow().isoformat() + "Z",
@@ -372,6 +456,7 @@ def aggregate():
         "alerts":         alerts,
         "source_status":  source_status,
         "jjm_districts":  jjm_districts,
+        "pmksy_districts": pmksy_districts,
     }
 
 
@@ -485,7 +570,7 @@ async def generate_insights():
     jsp_raw   = _cache.get("jansoochna",  {}).get("data", [])
     ms_raw    = _cache.get("myscheme",    {}).get("data", [])
     schemes   = rr_raw + jsp_raw + ms_raw
-    portals   = igod_raw
+    portals   = [_normalize_portal(p) for p in igod_raw]
 
     if not schemes:
         raise HTTPException(400, "No scraped data found. Run /scrape/all first.")
@@ -666,6 +751,23 @@ async def get_jjm(refresh: bool = False):
         "scraped_at": data[0].get("scraped_at") if data else None,
     }
     return _cache[JJM_CACHE_KEY]
+
+
+@app.get("/pmksy")
+async def get_pmksy(refresh: bool = False):
+    """
+    Returns live PMKSY district irrigation data for Rajasthan.
+    Scraped from wdcpmksy.dolr.gov.in and cached for reuse.
+    """
+    if not refresh and PMKSY_CACHE_KEY in _cache:
+        return _cache[PMKSY_CACHE_KEY]
+    data = await asyncio.to_thread(scrape_pmksy)
+    _cache[PMKSY_CACHE_KEY] = {
+        "data": data,
+        "live": any(d.get("live") for d in data),
+        "scraped_at": data[0].get("scraped_at") if data else None,
+    }
+    return _cache[PMKSY_CACHE_KEY]
 
 
 def _latest_scraped(items):

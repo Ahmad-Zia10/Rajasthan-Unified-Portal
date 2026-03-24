@@ -1,0 +1,26 @@
+{
+  "scheme_id": "PMFBY",
+  "scheme_name": "Pradhan Mantri Fasal Bima Yojana 2023-24 Kharif",
+  "source_url": "https://www.pmfby.gov.in/",
+  "fetched_at": "2026-03-20T22:08:10.173Z",
+  "state": "Rajasthan",
+  "data_year": "2023-24",
+  "districts": [
+    {
+      "district_name": "FETCH_FAILED",
+      "district_code": null,
+      "metrics": {
+        "error": "No Rajasthan district PMFBY dataset could be resolved from data.gov.in, and Playwright fallback did not capture usable district JSON.",
+        "fallback_suggestion": "Check for a newer PMFBY resource on data.gov.in or inspect the live PMFBY dashboard API manually."
+      },
+      "coverage_pct": null,
+      "status": "critical"
+    }
+  ],
+  "state_totals": {},
+  "metadata": {
+    "access_method": "api",
+    "data_reliability": "estimated",
+    "notes": "Check for a newer PMFBY resource on data.gov.in or inspect the live PMFBY dashboard API manually."
+  }
+}
