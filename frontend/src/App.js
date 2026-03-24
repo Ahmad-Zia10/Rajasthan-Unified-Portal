@@ -556,7 +556,11 @@ function DashboardTab({ agg, srcStatus, onScrapeAll, onScrapeOne, scraping, budg
           <span style={{ fontWeight:800, fontSize:14, color:"#1a1a2e" }}>Live Data Summary</span>
           <InfoTip text="Every number here is computed live from the current scrape. Hover any ℹ️ icon to see exactly where the data comes from."/>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
+        <div style={{ 
+          display:"grid",
+          gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",  // ← CHANGED
+          gap:10
+         }}>
           {[
             { icon:"📋", val:kpis.total_schemes,        label:"schemes scraped",  color:"#f97316", bg:"#fff7ed",
               tip:"Total scheme records from RajRAS (HTML scrape) + Jan Soochna (JSON API) + MyScheme (REST API)." },
@@ -606,7 +610,11 @@ function DashboardTab({ agg, srcStatus, onScrapeAll, onScrapeOne, scraping, budg
         </div>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:24 }}>
+      <div style={{ 
+        display:"grid",
+        gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",  // ← CHANGED
+        gap:14, marginBottom:24
+       }}>
         {(budgetLoading?Array(6).fill(null):CARDS).map((card,i)=>(
           <div key={i} style={{ background:"white", borderRadius:14, border:"1px solid #e5e7eb",
             boxShadow:"0 1px 4px rgba(0,0,0,0.04)", padding:"16px 18px 14px", display:"flex", flexDirection:"column" }}>
@@ -635,7 +643,11 @@ function DashboardTab({ agg, srcStatus, onScrapeAll, onScrapeOne, scraping, budg
         ))}
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:22 }}>
+      <div style={{ 
+        display:"grid",
+        gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))",  // ← CHANGED
+        gap:10, marginBottom:22
+       }}>
         {[
           {sid:"rajras",count:kpis.rajras_count},
           {sid:"jansoochna",count:kpis.jansoochna_count},
@@ -677,7 +689,11 @@ function DashboardTab({ agg, srcStatus, onScrapeAll, onScrapeOne, scraping, budg
               {Math.min(10,(schemes||[]).length)} of {(schemes||[]).length}
             </span>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+          <div style={{ 
+            display:"grid",
+            gridTemplateColumns:"repeat(auto-fit, minmax(300px, 1fr))",  // ← CHANGED
+            gap:8
+           }}>
             {(schemes||[]).slice(0,10).map((s,i)=>{
               const src=SRC[s._src]||SRC.myscheme;
               return (
@@ -1232,7 +1248,11 @@ function SchemesTab({ agg, onScrapeAll, rajrasData, jansoochnaData }) {
       </div>
 
       {/* 3-column card grid */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
+      <div style={{ 
+        display:"grid",
+        gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))",  // ← CHANGED
+        gap:16
+       }}>
         {filtered.map((scheme, i) => {
           const srcMeta    = SRC[scheme._src] || SRC.myscheme;
           const benefitText = cleanInlineText(scheme.benefit || scheme.description || "");
@@ -3828,19 +3848,21 @@ export default function App() {
       <div style={{ background:"white", borderBottom:"1px solid #e5e7eb",
         position:"sticky", top:0, zIndex:100, boxShadow:"0 1px 8px rgba(0,0,0,0.06)" }}>
 
-        <div style={{ display:"flex", alignItems:"center", gap:14, padding:"11px 28px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 20px" }}>
           <div style={{ width:46, height:46, borderRadius:10, background:"#f97316",
             display:"flex", alignItems:"center", justifyContent:"center",
-            color:"white", fontWeight:900, fontSize:17 }}>AI</div>
+            color:"white", fontWeight:900, fontSize:17, flexShrink:0 }}>AI</div>
           <div>
             <div style={{ fontWeight:800, fontSize:15, color:"#1a1a2e" }}>AI Chief of Staff</div>
             <div style={{ fontSize:10, color:"#9ca3af", letterSpacing:"0.07em" }}>OFFICE OF CM · RAJASTHAN · REAL VERIFIED DATA</div>
           </div>
           <div style={{ flex:1 }}/>
-          <div style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:10,
-            padding:"8px 16px", display:"flex", alignItems:"center", gap:7, fontSize:12, color:"#0369a1", fontWeight:600 }}>
-            <span>📚</span><span>Sources: Budget 2025-26 · JJM MIS · PRS India</span>
-          </div>
+          {window.innerWidth >= 1024 && (
+            <div style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:10,
+              padding:"8px 16px", display:"flex", alignItems:"center", gap:7, fontSize:12, color:"#0369a1", fontWeight:600 }}>
+              <span>📚</span><span>Sources: Budget 2025-26 · JJM MIS · PRS India</span>
+            </div>
+          )}
           <div style={{ background:"white", border:"1.5px solid #bbf7d0", borderRadius:10,
             padding:"8px 14px", display:"flex", alignItems:"center", gap:7 }}>
             <div style={{ width:9, height:9, borderRadius:"50%", background:"#10b981", boxShadow:"0 0 0 3px #d1fae5" }}/>
@@ -3902,7 +3924,13 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ display:"flex", padding:"0 28px", borderTop:"1px solid #f1f5f9" }}>
+        <div style={{ 
+          display:"flex", padding:"0 12px",   // ← reduced from 28px
+          borderTop:"1px solid #f1f5f9",
+          overflowX:"auto",                   // ← ADD
+          WebkitOverflowScrolling:"touch",    // ← ADD (smooth scroll on iOS)
+          scrollbarWidth:"none", 
+        }}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
               background:t.highlight&&tab===t.id?"linear-gradient(135deg,#f97316,#ea580c)":t.highlight?"#fff7ed":"transparent",
@@ -3951,7 +3979,7 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ maxWidth:1180, margin:"0 auto", padding:"24px 28px" }}>
+      <div style={{ maxWidth:1180, margin:"0 auto", padding:"24px 16px"}}>
         {tab==="dashboard"&&<DashboardTab agg={agg} srcStatus={srcStatus}
           onScrapeAll={scrapeAll} onScrapeOne={scrapeOne}
           scraping={scraping} scrapingAll={scrapingAll} online={online}
