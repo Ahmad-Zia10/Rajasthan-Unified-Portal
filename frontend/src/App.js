@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import DashboardTab, { AppSidebar, AppTopBar } from "./DashboardTab_redesign";
 import axios from "axios";
 import InsightsEngine from "./InsightsEngine";
 import {
@@ -496,229 +497,229 @@ function EmptyState({ onScrape }) {
 }
 
 // ── Dashboard Tab ─────────────────────────────────────────────────────────────
-function DashboardTab({ agg, srcStatus, onScrapeAll, onScrapeOne, scraping, budget, budgetLoading }) {
-  if (!agg) return <EmptyState onScrape={onScrapeAll}/>;
-  const { kpis, schemes } = agg;
+// function DashboardTab({ agg, srcStatus, onScrapeAll, onScrapeOne, scraping, budget, budgetLoading }) {
+//   if (!agg) return <EmptyState onScrape={onScrapeAll}/>;
+//   const { kpis, schemes } = agg;
 
-  const Spark = ({ data=[], color="#f97316" }) => {
-    if (!data||data.length<2) return <div style={{ width:100, height:44, background:`${color}08`, borderRadius:6 }}/>;
-    const W=100, H=44, PAD=4;
-    const min=Math.min(...data), max=Math.max(...data), rng=(max-min)||1;
-    const xs=data.map((_,i)=>(i/(data.length-1))*W);
-    const ys=data.map(v=>H-PAD-((v-min)/rng)*(H-PAD*2));
-    const lp=xs.map((x,i)=>`${x},${ys[i]}`).join(" ");
-    const ap=`0,${H} `+lp+` ${W},${H}`;
-    const gid=`g${color.replace(/#/g,"")}`;
-    return (
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow:"visible", display:"block" }}>
-        <defs>
-          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.22"/>
-            <stop offset="80%" stopColor={color} stopOpacity="0.04"/>
-            <stop offset="100%" stopColor={color} stopOpacity="0"/>
-          </linearGradient>
-        </defs>
-        <polygon points={ap} fill={`url(#${gid})`}/>
-        <polyline points={lp} fill="none" stroke={color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
-        <circle cx={xs[xs.length-1]} cy={ys[ys.length-1]} r="3" fill={color} stroke="white" strokeWidth="1.5"/>
-      </svg>
-    );
-  };
+//   const Spark = ({ data=[], color="#f97316" }) => {
+//     if (!data||data.length<2) return <div style={{ width:100, height:44, background:`${color}08`, borderRadius:6 }}/>;
+//     const W=100, H=44, PAD=4;
+//     const min=Math.min(...data), max=Math.max(...data), rng=(max-min)||1;
+//     const xs=data.map((_,i)=>(i/(data.length-1))*W);
+//     const ys=data.map(v=>H-PAD-((v-min)/rng)*(H-PAD*2));
+//     const lp=xs.map((x,i)=>`${x},${ys[i]}`).join(" ");
+//     const ap=`0,${H} `+lp+` ${W},${H}`;
+//     const gid=`g${color.replace(/#/g,"")}`;
+//     return (
+//       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow:"visible", display:"block" }}>
+//         <defs>
+//           <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+//             <stop offset="0%" stopColor={color} stopOpacity="0.22"/>
+//             <stop offset="80%" stopColor={color} stopOpacity="0.04"/>
+//             <stop offset="100%" stopColor={color} stopOpacity="0"/>
+//           </linearGradient>
+//         </defs>
+//         <polygon points={ap} fill={`url(#${gid})`}/>
+//         <polyline points={lp} fill="none" stroke={color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
+//         <circle cx={xs[xs.length-1]} cy={ys[ys.length-1]} r="3" fill={color} stroke="white" strokeWidth="1.5"/>
+//       </svg>
+//     );
+//   };
 
-  const b=budget||{}, d=b.display||{}, sp=b.sparklines||{}, bm=b.scrape_meta||{};
-  const CARDS = [
-    { label:"HEALTH BUDGET 2025-26",    value:b.health_cr?`₹${Number(b.health_cr).toLocaleString("en-IN")} Cr`:d.health||"₹28,865 Cr",             sub:b.health_pct?`${b.health_pct}% of total (nat avg 6.2%)`:"8.4% of total (nat avg 6.2%)",  color:"#ef4444", spark:sp.health_cr||[18200,21300,23100,25400,27200,28865],      icon:"🏥" },
-    { label:"EDUCATION ALLOCATION",     value:b.education_pct?`${b.education_pct}% share`:d.education_pct||"18% share",                             sub:"Above 15% national avg",                                                                    color:"#3b82f6", spark:sp.education_pct||[15.2,15.8,16.1,16.9,17.4,18.0],        icon:"🎓" },
-    { label:"JJM COVERAGE RAJASTHAN",   value:b.jjm_coverage_pct?`${Number(b.jjm_coverage_pct).toFixed(2)}%`:d.jjm_coverage||"55.36%",             sub:"National avg: 79.74%",                                                                      color:"#ef4444", spark:sp.jjm_coverage_pct||[12.5,28.3,41.2,49.8,53.1,55.36],   icon:"💧" },
-    { label:"FISCAL DEFICIT",           value:b.fiscal_deficit_pct_gsdp?`${b.fiscal_deficit_pct_gsdp}% GSDP`:d.fiscal_deficit_pct||"4.25% GSDP",   sub:b.fiscal_deficit_cr?`₹${Number(b.fiscal_deficit_cr).toLocaleString("en-IN")} Cr (2025-26 BE)`:"₹34,543 Cr (2025-26 BE)", color:"#f97316", spark:sp.fiscal_deficit_pct||[3.8,4.1,3.6,3.9,4.0,4.25],      icon:"📊" },
-    { label:"CAPITAL OUTLAY",           value:b.capital_outlay_cr?`₹${Number(b.capital_outlay_cr).toLocaleString("en-IN")} Cr`:d.capital_outlay||"₹53,686 Cr",   sub:"+40% over 2024-25 RE",                                                        color:"#10b981", spark:sp.capital_outlay_cr||[22000,28000,32000,38000,45000,53686],  icon:"🏗️" },
-    { label:"SOCIAL SECURITY BUDGET",   value:b.social_security_cr?`₹${Number(b.social_security_cr).toLocaleString("en-IN")}+ Cr`:d.social_security||"₹14,000+ Cr", sub:"Pension raised to ₹1,250/mo",                                            color:"#8b5cf6", spark:sp.social_security_cr||[6000,8000,9500,11000,12800,14000], icon:"🛡️" },
-  ];
+//   const b=budget||{}, d=b.display||{}, sp=b.sparklines||{}, bm=b.scrape_meta||{};
+//   const CARDS = [
+//     { label:"HEALTH BUDGET 2025-26",    value:b.health_cr?`₹${Number(b.health_cr).toLocaleString("en-IN")} Cr`:d.health||"₹28,865 Cr",             sub:b.health_pct?`${b.health_pct}% of total (nat avg 6.2%)`:"8.4% of total (nat avg 6.2%)",  color:"#ef4444", spark:sp.health_cr||[18200,21300,23100,25400,27200,28865],      icon:"🏥" },
+//     { label:"EDUCATION ALLOCATION",     value:b.education_pct?`${b.education_pct}% share`:d.education_pct||"18% share",                             sub:"Above 15% national avg",                                                                    color:"#3b82f6", spark:sp.education_pct||[15.2,15.8,16.1,16.9,17.4,18.0],        icon:"🎓" },
+//     { label:"JJM COVERAGE RAJASTHAN",   value:b.jjm_coverage_pct?`${Number(b.jjm_coverage_pct).toFixed(2)}%`:d.jjm_coverage||"55.36%",             sub:"National avg: 79.74%",                                                                      color:"#ef4444", spark:sp.jjm_coverage_pct||[12.5,28.3,41.2,49.8,53.1,55.36],   icon:"💧" },
+//     { label:"FISCAL DEFICIT",           value:b.fiscal_deficit_pct_gsdp?`${b.fiscal_deficit_pct_gsdp}% GSDP`:d.fiscal_deficit_pct||"4.25% GSDP",   sub:b.fiscal_deficit_cr?`₹${Number(b.fiscal_deficit_cr).toLocaleString("en-IN")} Cr (2025-26 BE)`:"₹34,543 Cr (2025-26 BE)", color:"#f97316", spark:sp.fiscal_deficit_pct||[3.8,4.1,3.6,3.9,4.0,4.25],      icon:"📊" },
+//     { label:"CAPITAL OUTLAY",           value:b.capital_outlay_cr?`₹${Number(b.capital_outlay_cr).toLocaleString("en-IN")} Cr`:d.capital_outlay||"₹53,686 Cr",   sub:"+40% over 2024-25 RE",                                                        color:"#10b981", spark:sp.capital_outlay_cr||[22000,28000,32000,38000,45000,53686],  icon:"🏗️" },
+//     { label:"SOCIAL SECURITY BUDGET",   value:b.social_security_cr?`₹${Number(b.social_security_cr).toLocaleString("en-IN")}+ Cr`:d.social_security||"₹14,000+ Cr", sub:"Pension raised to ₹1,250/mo",                                            color:"#8b5cf6", spark:sp.social_security_cr||[6000,8000,9500,11000,12800,14000], icon:"🛡️" },
+//   ];
 
-  return (
-    <div className="fadeup">
-      <div style={{ display:"flex", alignItems:"center", marginBottom:3 }}>
-        <h1 style={{ fontSize:29, fontWeight:900, color:"#0f172a", margin:0, letterSpacing:"-0.3px" }}>Namaste, <span style={{ color:"#f97316" }}>Mukhyamantri Ji</span> 🙏</h1>
-        <InfoTip text="KPIs and charts are built from live-scraped data. Every number comes from the /aggregate API which merges all 4 scrapers. Use ⚡ Scrape Now to refresh."/>
-      </div>
-      <p style={{ color:"#6b7280", fontSize:13, marginBottom:16 }}>
-        All figures verified from official sources · Budget 2025-26 · JJM MIS · PRS India
-      </p>
+//   return (
+//     <div className="fadeup">
+//       <div style={{ display:"flex", alignItems:"center", marginBottom:3 }}>
+//         <h1 style={{ fontSize:29, fontWeight:900, color:"#0f172a", margin:0, letterSpacing:"-0.3px" }}>Namaste, <span style={{ color:"#f97316" }}>Mukhyamantri Ji</span> 🙏</h1>
+//         <InfoTip text="KPIs and charts are built from live-scraped data. Every number comes from the /aggregate API which merges all 4 scrapers. Use ⚡ Scrape Now to refresh."/>
+//       </div>
+//       <p style={{ color:"#6b7280", fontSize:13, marginBottom:16 }}>
+//         All figures verified from official sources · Budget 2025-26 · JJM MIS · PRS India
+//       </p>
 
-      {/* ── Live Data Summary Banner ── */}
-      <div style={{
-        background:"linear-gradient(135deg,#fff7ed,#fffbeb,#f0f9ff)",
-        border:"1.5px solid #fed7aa", borderRadius:14,
-        padding:"14px 18px", marginBottom:20,
-      }}>
-        <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
-          <span style={{ fontSize:15 }}>📊</span>
-          <span style={{ fontWeight:800, fontSize:14, color:"#1a1a2e" }}>Live Data Summary</span>
-          <InfoTip text="Every number here is computed live from the current scrape. Hover any ℹ️ icon to see exactly where the data comes from."/>
-        </div>
-        <div style={{ 
-          display:"grid",
-          gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",  // ← CHANGED
-          gap:10
-         }}>
-          {[
-            { icon:"📋", val:kpis.total_schemes,        label:"schemes scraped",  color:"#f97316", bg:"#fff7ed",
-              tip:"Total scheme records from RajRAS (HTML scrape) + Jan Soochna (JSON API) + MyScheme (REST API)." },
-            { icon:"🏛️", val:kpis.total_portals,        label:"IGOD portals",     color:"#3b82f6", bg:"#eff6ff",
-              tip:"Official Rajasthan government portals discovered from the IGOD directory and lightly enriched from each portal homepage." },
-            { icon:"🗂️", val:kpis.unique_categories,    label:"categories",       color:"#10b981", bg:"#f0fdf4",
-              tip:"Unique scheme categories found. Derived by keyword matching on scheme names — not from any API field directly." },
-            { icon:"✅", val:`${kpis.sources_live}/4`,  label:"sources online",   color:"#8b5cf6", bg:"#faf5ff",
-              tip:"Live scrapers out of 4 total (IGOD, RajRAS, Jan Soochna, MyScheme). 4/4 = all portals responded." },
-          ].map((item, i) => (
-            <div key={i} style={{ background:item.bg, border:`1px solid ${item.color}25`, borderRadius:10, padding:"10px 12px" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                <span style={{ fontSize:18 }}>{item.icon}</span>
-                <InfoTip text={item.tip}/>
-              </div>
-              <div style={{ fontSize:22, fontWeight:900, color:item.color, lineHeight:1 }}>{item.val}</div>
-              <div style={{ fontSize:10, color:"#6b7280", marginTop:3 }}>{item.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+//       {/* ── Live Data Summary Banner ── */}
+//       <div style={{
+//         background:"linear-gradient(135deg,#fff7ed,#fffbeb,#f0f9ff)",
+//         border:"1.5px solid #fed7aa", borderRadius:14,
+//         padding:"14px 18px", marginBottom:20,
+//       }}>
+//         <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
+//           <span style={{ fontSize:15 }}>📊</span>
+//           <span style={{ fontWeight:800, fontSize:14, color:"#1a1a2e" }}>Live Data Summary</span>
+//           <InfoTip text="Every number here is computed live from the current scrape. Hover any ℹ️ icon to see exactly where the data comes from."/>
+//         </div>
+//         <div style={{ 
+//           display:"grid",
+//           gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",  // ← CHANGED
+//           gap:10
+//          }}>
+//           {[
+//             { icon:"📋", val:kpis.total_schemes,        label:"schemes scraped",  color:"#f97316", bg:"#fff7ed",
+//               tip:"Total scheme records from RajRAS (HTML scrape) + Jan Soochna (JSON API) + MyScheme (REST API)." },
+//             { icon:"🏛️", val:kpis.total_portals,        label:"IGOD portals",     color:"#3b82f6", bg:"#eff6ff",
+//               tip:"Official Rajasthan government portals discovered from the IGOD directory and lightly enriched from each portal homepage." },
+//             { icon:"🗂️", val:kpis.unique_categories,    label:"categories",       color:"#10b981", bg:"#f0fdf4",
+//               tip:"Unique scheme categories found. Derived by keyword matching on scheme names — not from any API field directly." },
+//             { icon:"✅", val:`${kpis.sources_live}/4`,  label:"sources online",   color:"#8b5cf6", bg:"#faf5ff",
+//               tip:"Live scrapers out of 4 total (IGOD, RajRAS, Jan Soochna, MyScheme). 4/4 = all portals responded." },
+//           ].map((item, i) => (
+//             <div key={i} style={{ background:item.bg, border:`1px solid ${item.color}25`, borderRadius:10, padding:"10px 12px" }}>
+//               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+//                 <span style={{ fontSize:18 }}>{item.icon}</span>
+//                 <InfoTip text={item.tip}/>
+//               </div>
+//               <div style={{ fontSize:22, fontWeight:900, color:item.color, lineHeight:1 }}>{item.val}</div>
+//               <div style={{ fontSize:10, color:"#6b7280", marginTop:3 }}>{item.label}</div>
+//             </div>
+//           ))}
+//         </div>
+//       </div>
 
-      <div style={{ background:"linear-gradient(135deg,#eff6ff 0%,#f0f9ff 100%)",
-        border:"1.5px solid #bfdbfe", borderRadius:12, padding:"11px 18px", marginBottom:24, lineHeight:1.7 }}>
-        <div style={{ fontSize:13 }}>
-          <span style={{ fontWeight:800, color:"#1d4ed8" }}>Budget 2025-26: </span>
-          <span style={{ color:"#1e3a5f" }}>
-            Revenue expenditure {b.total_expenditure_cr?`₹${Number(b.total_expenditure_cr).toLocaleString("en-IN")} Cr`:"₹3,25,546 Cr"}
-            {" · "}Fiscal deficit {b.fiscal_deficit_pct_gsdp?`${b.fiscal_deficit_pct_gsdp}% GSDP`:"4.25% GSDP"}
-          </span>
-        </div>
-        <div style={{ fontSize:12, color:"#4b7ab5", display:"flex", flexWrap:"wrap", alignItems:"center", gap:6 }}>
-          <span>Target: ${b.economy_target_bn_usd||350} Bn economy by 2030
-          {b.green_budget!==false?" · First Green Budget of Rajasthan":""}</span>
-          {bm.note&&(
-            <span style={{ background:"#dbeafe", color:"#1d4ed8",
-              borderRadius:4, padding:"1px 7px", fontSize:11, fontWeight:600 }}>
-              {bm.live_sources>0?`${bm.live_sources} budget sources live`:"Verified fallback"}
-            </span>
-          )}
-          {bm.sparkline_live_years>0&&(
-            <span style={{ background:"#d1fae5", color:"#065f46",
-              borderRadius:4, padding:"1px 7px", fontSize:11, fontWeight:600 }}>
-              📈 {bm.sparkline_live_years}/{b.sparkline_meta?.total_years||6} sparkline years live
-            </span>
-          )}
-        </div>
-      </div>
+//       <div style={{ background:"linear-gradient(135deg,#eff6ff 0%,#f0f9ff 100%)",
+//         border:"1.5px solid #bfdbfe", borderRadius:12, padding:"11px 18px", marginBottom:24, lineHeight:1.7 }}>
+//         <div style={{ fontSize:13 }}>
+//           <span style={{ fontWeight:800, color:"#1d4ed8" }}>Budget 2025-26: </span>
+//           <span style={{ color:"#1e3a5f" }}>
+//             Revenue expenditure {b.total_expenditure_cr?`₹${Number(b.total_expenditure_cr).toLocaleString("en-IN")} Cr`:"₹3,25,546 Cr"}
+//             {" · "}Fiscal deficit {b.fiscal_deficit_pct_gsdp?`${b.fiscal_deficit_pct_gsdp}% GSDP`:"4.25% GSDP"}
+//           </span>
+//         </div>
+//         <div style={{ fontSize:12, color:"#4b7ab5", display:"flex", flexWrap:"wrap", alignItems:"center", gap:6 }}>
+//           <span>Target: ${b.economy_target_bn_usd||350} Bn economy by 2030
+//           {b.green_budget!==false?" · First Green Budget of Rajasthan":""}</span>
+//           {bm.note&&(
+//             <span style={{ background:"#dbeafe", color:"#1d4ed8",
+//               borderRadius:4, padding:"1px 7px", fontSize:11, fontWeight:600 }}>
+//               {bm.live_sources>0?`${bm.live_sources} budget sources live`:"Verified fallback"}
+//             </span>
+//           )}
+//           {bm.sparkline_live_years>0&&(
+//             <span style={{ background:"#d1fae5", color:"#065f46",
+//               borderRadius:4, padding:"1px 7px", fontSize:11, fontWeight:600 }}>
+//               📈 {bm.sparkline_live_years}/{b.sparkline_meta?.total_years||6} sparkline years live
+//             </span>
+//           )}
+//         </div>
+//       </div>
 
-      <div style={{ 
-        display:"grid",
-        gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",  // ← CHANGED
-        gap:14, marginBottom:24
-       }}>
-        {(budgetLoading?Array(6).fill(null):CARDS).map((card,i)=>(
-          <div key={i} style={{ background:"white", borderRadius:14, border:"1px solid #e5e7eb",
-            boxShadow:"0 1px 4px rgba(0,0,0,0.04)", padding:"16px 18px 14px", display:"flex", flexDirection:"column" }}>
-            {budgetLoading||!card?(
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                <div style={{ display:"flex", justifyContent:"space-between" }}>
-                  <div style={{ width:28, height:28, borderRadius:8, background:"#f3f4f6" }}/>
-                  <div style={{ width:100, height:44, borderRadius:6, background:"#f3f4f6" }}/>
-                </div>
-                <div style={{ width:"60%", height:10, borderRadius:4, background:"#f3f4f6" }}/>
-                <div style={{ width:"80%", height:28, borderRadius:6, background:"#f3f4f6" }}/>
-                <div style={{ width:"50%", height:10, borderRadius:4, background:"#f3f4f6" }}/>
-              </div>
-            ):(
-              <>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                  <span style={{ fontSize:20, lineHeight:1 }}>{card.icon}</span>
-                  <Spark data={card.spark} color={card.color}/>
-                </div>
-                <div style={{ fontSize:10, fontWeight:700, color:"#9ca3af", letterSpacing:"0.08em", marginBottom:7, textTransform:"uppercase" }}>{card.label}</div>
-                <div style={{ fontSize:card.value.length>12?22:27, fontWeight:900, color:card.color, letterSpacing:"-0.5px", lineHeight:1.1, marginBottom:6 }}>{card.value}</div>
-                <div style={{ fontSize:11, color:"#9ca3af", marginTop:"auto" }}>{card.sub}</div>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
+//       <div style={{ 
+//         display:"grid",
+//         gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",  // ← CHANGED
+//         gap:14, marginBottom:24
+//        }}>
+//         {(budgetLoading?Array(6).fill(null):CARDS).map((card,i)=>(
+//           <div key={i} style={{ background:"white", borderRadius:14, border:"1px solid #e5e7eb",
+//             boxShadow:"0 1px 4px rgba(0,0,0,0.04)", padding:"16px 18px 14px", display:"flex", flexDirection:"column" }}>
+//             {budgetLoading||!card?(
+//               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+//                 <div style={{ display:"flex", justifyContent:"space-between" }}>
+//                   <div style={{ width:28, height:28, borderRadius:8, background:"#f3f4f6" }}/>
+//                   <div style={{ width:100, height:44, borderRadius:6, background:"#f3f4f6" }}/>
+//                 </div>
+//                 <div style={{ width:"60%", height:10, borderRadius:4, background:"#f3f4f6" }}/>
+//                 <div style={{ width:"80%", height:28, borderRadius:6, background:"#f3f4f6" }}/>
+//                 <div style={{ width:"50%", height:10, borderRadius:4, background:"#f3f4f6" }}/>
+//               </div>
+//             ):(
+//               <>
+//                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+//                   <span style={{ fontSize:20, lineHeight:1 }}>{card.icon}</span>
+//                   <Spark data={card.spark} color={card.color}/>
+//                 </div>
+//                 <div style={{ fontSize:10, fontWeight:700, color:"#9ca3af", letterSpacing:"0.08em", marginBottom:7, textTransform:"uppercase" }}>{card.label}</div>
+//                 <div style={{ fontSize:card.value.length>12?22:27, fontWeight:900, color:card.color, letterSpacing:"-0.5px", lineHeight:1.1, marginBottom:6 }}>{card.value}</div>
+//                 <div style={{ fontSize:11, color:"#9ca3af", marginTop:"auto" }}>{card.sub}</div>
+//               </>
+//             )}
+//           </div>
+//         ))}
+//       </div>
 
-      <div style={{ 
-        display:"grid",
-        gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))",  // ← CHANGED
-        gap:10, marginBottom:22
-       }}>
-        {[
-          {sid:"rajras",count:kpis.rajras_count},
-          {sid:"jansoochna",count:kpis.jansoochna_count},
-          {sid:"myscheme",count:kpis.myscheme_count},
-          {sid:"igod",count:kpis.igod_count},
-        ].map(({sid,count})=>{
-          const s=SRC[sid]; const st=srcStatus[sid]||{}; const loading=scraping[sid];
-          return (
-            <div key={sid} style={{ background:"white", borderRadius:12,
-              border:`1px solid ${st.status==="ok"?s.color+"30":"#e5e7eb"}`, padding:"12px 14px" }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <span>{s.icon}</span>
-                  <span style={{ fontWeight:700, fontSize:12, color:"#374151" }}>{s.label}</span>
-                </div>
-                <button onClick={()=>onScrapeOne(sid)} disabled={loading}
-                  style={{ background:loading?"#f3f4f6":`${s.color}12`, color:loading?"#9ca3af":s.color,
-                    border:`1px solid ${loading?"#e5e7eb":s.color+"30"}`, borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:700 }}>
-                  {loading?"⟳":"↺"}
-                </button>
-              </div>
-              <div style={{ fontSize:24, fontWeight:900, color:s.color, lineHeight:1 }}>{count??0}</div>
-              <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:5 }}>
-                <StatusDot status={loading?"loading":st.status} animating={!!loading}/>
-                <span style={{ fontSize:11, color:"#9ca3af" }}>
-                  {loading?"scraping…":st.status==="ok"?`live · ${timeAgo(st.scraped_at)}`:"pending"}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+//       <div style={{ 
+//         display:"grid",
+//         gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))",  // ← CHANGED
+//         gap:10, marginBottom:22
+//        }}>
+//         {[
+//           {sid:"rajras",count:kpis.rajras_count},
+//           {sid:"jansoochna",count:kpis.jansoochna_count},
+//           {sid:"myscheme",count:kpis.myscheme_count},
+//           {sid:"igod",count:kpis.igod_count},
+//         ].map(({sid,count})=>{
+//           const s=SRC[sid]; const st=srcStatus[sid]||{}; const loading=scraping[sid];
+//           return (
+//             <div key={sid} style={{ background:"white", borderRadius:12,
+//               border:`1px solid ${st.status==="ok"?s.color+"30":"#e5e7eb"}`, padding:"12px 14px" }}>
+//               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
+//                 <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+//                   <span>{s.icon}</span>
+//                   <span style={{ fontWeight:700, fontSize:12, color:"#374151" }}>{s.label}</span>
+//                 </div>
+//                 <button onClick={()=>onScrapeOne(sid)} disabled={loading}
+//                   style={{ background:loading?"#f3f4f6":`${s.color}12`, color:loading?"#9ca3af":s.color,
+//                     border:`1px solid ${loading?"#e5e7eb":s.color+"30"}`, borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:700 }}>
+//                   {loading?"⟳":"↺"}
+//                 </button>
+//               </div>
+//               <div style={{ fontSize:24, fontWeight:900, color:s.color, lineHeight:1 }}>{count??0}</div>
+//               <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:5 }}>
+//                 <StatusDot status={loading?"loading":st.status} animating={!!loading}/>
+//                 <span style={{ fontSize:11, color:"#9ca3af" }}>
+//                   {loading?"scraping…":st.status==="ok"?`live · ${timeAgo(st.scraped_at)}`:"pending"}
+//                 </span>
+//               </div>
+//             </div>
+//           );
+//         })}
+//       </div>
 
-      {(schemes||[]).length>0&&(
-        <div style={{ background:"white", borderRadius:14, border:"1px solid #e5e7eb", padding:18 }}>
-          <div style={{ fontWeight:800, fontSize:14, marginBottom:14 }}>
-            Recently Scraped Schemes
-            <span style={{ color:"#9ca3af", fontWeight:400, fontSize:12, marginLeft:8 }}>
-              {Math.min(10,(schemes||[]).length)} of {(schemes||[]).length}
-            </span>
-          </div>
-          <div style={{ 
-            display:"grid",
-            gridTemplateColumns:"repeat(auto-fit, minmax(300px, 1fr))",  // ← CHANGED
-            gap:8
-           }}>
-            {(schemes||[]).slice(0,10).map((s,i)=>{
-              const src=SRC[s._src]||SRC.myscheme;
-              return (
-                <div key={i} style={{ display:"flex", gap:10, padding:"10px 12px",
-                  background:"#fafafa", borderRadius:10, border:"1px solid #f3f4f6", alignItems:"flex-start" }}>
-                  <span style={{ fontSize:18, flexShrink:0 }}>{CAT_ICON[s.category]||"📋"}</span>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:600, fontSize:13, color:"#1f2937",
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
-                    {s.benefit&&(<div style={{ fontSize:11, color:"#10b981", fontWeight:600, marginTop:2,
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.benefit}</div>)}
-                    <div style={{ display:"flex", gap:5, marginTop:4, flexWrap:"wrap" }}>
-                      <Chip label={s.category||"General"} color={palColor(i)} small/>
-                      <Chip label={src.label} color={src.color} small/>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+//       {(schemes||[]).length>0&&(
+//         <div style={{ background:"white", borderRadius:14, border:"1px solid #e5e7eb", padding:18 }}>
+//           <div style={{ fontWeight:800, fontSize:14, marginBottom:14 }}>
+//             Recently Scraped Schemes
+//             <span style={{ color:"#9ca3af", fontWeight:400, fontSize:12, marginLeft:8 }}>
+//               {Math.min(10,(schemes||[]).length)} of {(schemes||[]).length}
+//             </span>
+//           </div>
+//           <div style={{ 
+//             display:"grid",
+//             gridTemplateColumns:"repeat(auto-fit, minmax(300px, 1fr))",  // ← CHANGED
+//             gap:8
+//            }}>
+//             {(schemes||[]).slice(0,10).map((s,i)=>{
+//               const src=SRC[s._src]||SRC.myscheme;
+//               return (
+//                 <div key={i} style={{ display:"flex", gap:10, padding:"10px 12px",
+//                   background:"#fafafa", borderRadius:10, border:"1px solid #f3f4f6", alignItems:"flex-start" }}>
+//                   <span style={{ fontSize:18, flexShrink:0 }}>{CAT_ICON[s.category]||"📋"}</span>
+//                   <div style={{ flex:1, minWidth:0 }}>
+//                     <div style={{ fontWeight:600, fontSize:13, color:"#1f2937",
+//                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</div>
+//                     {s.benefit&&(<div style={{ fontSize:11, color:"#10b981", fontWeight:600, marginTop:2,
+//                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.benefit}</div>)}
+//                     <div style={{ display:"flex", gap:5, marginTop:4, flexWrap:"wrap" }}>
+//                       <Chip label={s.category||"General"} color={palColor(i)} small/>
+//                       <Chip label={src.label} color={src.color} small/>
+//                     </div>
+//                   </div>
+//                 </div>
+//               );
+//             })}
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 
 // ── Scheme Detail Panel ─────────────────────────────────────────────────────
 function SchemeDetailPanel({ scheme, onClose }) {
@@ -3844,117 +3845,24 @@ export default function App() {
   ];
 
   return (
-    <div style={{ minHeight:"100vh", background:"#f5f6fa" }}>
-      <div style={{ background:"white", borderBottom:"1px solid #e5e7eb",
-        position:"sticky", top:0, zIndex:100, boxShadow:"0 1px 8px rgba(0,0,0,0.06)" }}>
+    <div style={{ minHeight:"100vh", background: "#fff8f3",          // T.background
+      fontFamily: "Manrope, sans-serif" }}>
+      
+      {/* ── Top bar (56px fixed) ── */}
+      <AppTopBar
+        onScrapeAll={scrapeAll}
+        scraping={scrapingAll}
+        srcStatus={srcStatus}
+        SRC={SRC}
+        online={online}
+        now={now}
+      />
 
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 20px" }}>
-          <div style={{ width:46, height:46, borderRadius:10, background:"#f97316",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            color:"white", fontWeight:900, fontSize:17, flexShrink:0 }}>AI</div>
-          <div>
-            <div style={{ fontWeight:800, fontSize:15, color:"#1a1a2e" }}>AI Chief of Staff</div>
-            <div style={{ fontSize:10, color:"#9ca3af", letterSpacing:"0.07em" }}>OFFICE OF CM · RAJASTHAN · REAL VERIFIED DATA</div>
-          </div>
-          <div style={{ flex:1 }}/>
-          {window.innerWidth >= 1024 && (
-            <div style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:10,
-              padding:"8px 16px", display:"flex", alignItems:"center", gap:7, fontSize:12, color:"#0369a1", fontWeight:600 }}>
-              <span>📚</span><span>Sources: Budget 2025-26 · JJM MIS · PRS India</span>
-            </div>
-          )}
-          <div style={{ background:"white", border:"1.5px solid #bbf7d0", borderRadius:10,
-            padding:"8px 14px", display:"flex", alignItems:"center", gap:7 }}>
-            <div style={{ width:9, height:9, borderRadius:"50%", background:"#10b981", boxShadow:"0 0 0 3px #d1fae5" }}/>
-            <span style={{ fontSize:13, fontWeight:700, color:"#166534" }}>Verified Data</span>
-          </div>
-          <ScrapeNowButton onClick={scrapeAll} loading={scrapingAll} disabled={!online}/>
-          <div style={{ display:"flex", alignItems:"center", gap:10, paddingLeft:12, borderLeft:"1px solid #e5e7eb" }}>
-            <div style={{ width:36, height:36, borderRadius:8, background:"#fee2e2",
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>👤</div>
-            <div>
-              <div style={{ fontWeight:700, fontSize:13, color:"#1f2937" }}>Bhajan Lal Sharma</div>
-              <div style={{ fontSize:11, color:"#9ca3af" }}>Chief Minister, Rajasthan</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display:"flex", gap:6, padding:"6px 28px", background:"#fafafa",
-          borderTop:"1px solid #f3f4f6", overflowX:"auto" }}>
-          {Object.entries(SRC).map(([sid,s])=>{
-            const st=srcStatus[sid]||{};
-            const targetTab = sid === "igod" ? "igod" : sid === "myscheme" || sid === "rajras" || sid === "jansoochna" ? "schemes" : "dashboard";
-            return (
-              <button
-                key={sid}
-                onClick={()=>setTab(targetTab)}
-                style={{ display:"flex", alignItems:"center", gap:6,
-                  background:st.status==="ok"?`${s.color}10`:"#f1f5f9",
-                  border:`1px solid ${st.status==="ok"?s.color+"30":"#e5e7eb"}`,
-                  borderRadius:6, padding:"4px 10px", fontSize:11, whiteSpace:"nowrap",
-                  cursor:"pointer" }}
-              >
-                <StatusDot status={scraping[sid]?"loading":st.status||"idle"} animating={!!scraping[sid]}/>
-                <span style={{ fontWeight:600, color:"#374151" }}>{s.icon} {s.label}</span>
-                {st.count>0&&<span style={{ color:s.color, fontWeight:800 }}>{st.count}</span>}
-                {st.scraped_at&&<span style={{ color:"#94a3b8" }}>{timeAgo(st.scraped_at)}</span>}
-              </button>
-            );
-          })}
-          {agg?.scraped_at&&(
-            <div style={{ marginLeft:"auto", fontSize:11, color:"#94a3b8", alignSelf:"center", whiteSpace:"nowrap" }}>
-              Aggregated {timeAgo(agg.scraped_at)}
-            </div>
-          )}
-        </div>
-
-        {scrapeLog.length>0&&(
-          <div style={{ padding:"4px 28px", background:"#f8fafc", borderTop:"1px solid #f3f4f6",
-            display:"flex", alignItems:"center", gap:10, overflowX:"auto" }}>
-            {scrapeLog.slice(0,5).map((log,i)=>(
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11,
-                whiteSpace:"nowrap",
-                color:log.type==="success"?"#166534":log.type==="error"?"#991b1b":"#64748b",
-                opacity:i===0?1:0.5 }}>
-                <span style={{ fontSize:10, color:"#94a3b8" }}>{log.ts}</span>
-                <span>{log.msg}</span>
-                {i<scrapeLog.slice(0,5).length-1&&<span style={{color:"#d1d5db"}}>·</span>}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div style={{ 
-          display:"flex", padding:"0 12px",   // ← reduced from 28px
-          borderTop:"1px solid #f1f5f9",
-          overflowX:"auto",                   // ← ADD
-          WebkitOverflowScrolling:"touch",    // ← ADD (smooth scroll on iOS)
-          scrollbarWidth:"none", 
-        }}>
-          {TABS.map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{
-              background:t.highlight&&tab===t.id?"linear-gradient(135deg,#f97316,#ea580c)":t.highlight?"#fff7ed":"transparent",
-              borderBottom:!t.highlight&&tab===t.id?"2.5px solid #f97316":!t.highlight?"2.5px solid transparent":"none",
-              borderRadius:t.highlight?"8px":0,
-              margin:t.highlight?"6px 4px":0,
-              padding:t.highlight?"7px 16px":"11px 18px",
-              fontWeight:tab===t.id?700:500,
-              color:t.highlight&&tab===t.id?"white":t.highlight?"#f97316":tab===t.id?"#f97316":"#6b7280",
-              fontSize:13, display:"flex", alignItems:"center", gap:6,
-              border:t.highlight&&tab!==t.id?"1.5px solid #fed7aa":t.highlight?"none":"none",
-              transition:"all .15s",
-            }}>
-              <span>{t.icon}</span> {t.label}
-              {t.badge&&<span style={{ background:t.id==="alerts"?"#ef4444":"#f97316",
-                color:"white", borderRadius:20, padding:"1px 7px", fontSize:10, fontWeight:800 }}>{t.badge}</span>}
-            </button>
-          ))}
-          <div style={{ marginLeft:"auto", alignSelf:"center", fontSize:12, color:"#9ca3af", paddingRight:4 }}>
-            {now.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})} ·{" "}
-            {now.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}
-          </div>
-        </div>
-      </div>
+      <AppSidebar
+        activeTab={tab}
+        onTabChange={setTab}
+        alertCount={criticalCount}
+      />
 
       {online===null&&(
         <div style={{ background:"#f0f9ff", borderBottom:"1px solid #bae6fd",
@@ -3979,11 +3887,23 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ maxWidth:1180, margin:"0 auto", padding:"24px 16px"}}>
-        {tab==="dashboard"&&<DashboardTab agg={agg} srcStatus={srcStatus}
-          onScrapeAll={scrapeAll} onScrapeOne={scrapeOne}
-          scraping={scraping} scrapingAll={scrapingAll} online={online}
-          budget={budget} budgetLoading={budgetLoading}/>}
+      <div style={{ marginLeft: 220,
+        paddingTop: 80,        // 56px topbar + 24px breathing room
+        paddingLeft: 32,
+        paddingRight: 32,
+        paddingBottom: 48,
+        minHeight: "100vh"}}>
+        {tab === "dashboard" && (
+          <DashboardTab
+            agg={agg}
+            srcStatus={srcStatus}
+            onScrapeAll={scrapeAll}
+            onScrapeOne={scrapeOne}
+            scraping={scraping}
+            budget={budget}
+            budgetLoading={budgetLoading}
+          />
+        )}
         {tab==="schemes"&&<SchemesTab agg={agg} rajrasData={rajrasData} jansoochnaData={jansoochnaData} onScrapeAll={scrapeAll}/>}
         {tab==="igod"&&<PortalsTab agg={agg} onScrapeAll={scrapeAll}/>}
         {tab==="budget"&&<BudgetDataTab budget={budget} budgetLoading={budgetLoading}
@@ -4002,9 +3922,16 @@ export default function App() {
         {tab==="insights"&&<InsightsEngine schemes={agg?.schemes||[]} portals={agg?.portals||[]} onScrapeFirst={scrapeAll}/>}
       </div>
 
-      <footer style={{ borderTop:"1px solid #e5e7eb", background:"white",
-        padding:"10px 28px", fontSize:11, color:"#94a3b8",
-        display:"flex", justifyContent:"space-between" }}>
+      <footer style={{
+        marginLeft: 220,
+        borderTop: `1px solid #e0c0b2`,
+        background: "#ffffff",
+        padding: "12px 32px",
+        fontSize: 11,
+        color: "#594237",
+        display: "flex", justifyContent: "space-between",
+        fontFamily: "Manrope, sans-serif",
+      }}>
         <span>AI Chief of Staff · Office of Chief Minister, Rajasthan</span>
         <span>Data: IGOD · RajRAS · Jan Soochna · MyScheme.gov.in</span>
       </footer>
